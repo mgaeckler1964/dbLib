@@ -1,0 +1,9 @@
+todos.txt
+*.bak
+*.dsk
+*.ipch
+*.opensdf
+*.sdf
+*.suo
+*.user
+*.~*

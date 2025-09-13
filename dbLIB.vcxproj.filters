@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source">
+      <UniqueIdentifier>{23f62fa1-58bd-41b8-bd85-3e3cfcd93c06}</UniqueIdentifier>
+      <Extensions>cpp</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{2f3afb65-c430-4af9-ac52-eeac6c628acf}</UniqueIdentifier>
+      <Extensions>H</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="database.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="db_exception.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="db_file_io.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="dblib.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="fieldvalue.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="index.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="record.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="table.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="db_exception.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="db_file_io.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fieldvalue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="index.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="record.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
