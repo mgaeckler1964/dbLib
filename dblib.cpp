@@ -277,7 +277,8 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 
 	std::auto_ptr<dbLib::Table> 	 tt( db->openTable( simple ) );
 
-	fillSimpleTable(tt.get(), 1600);
+	const int numData = 1600;
+	fillSimpleTable(tt.get(), numData);
 
 	int prevValue = -1;
 	for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
@@ -286,7 +287,16 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		UT_ASSERT_LESS( prevValue, newValue );
 		prevValue = newValue;
 	}
-	UT_ASSERT_EQUAL( prevValue, 1599 );
+	UT_ASSERT_EQUAL( prevValue, numData-1 );
+
+	prevValue = numData;
+	for( tt->lastRecord(); !tt->bof(); tt->previousRecord() )
+	{
+		int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+		UT_ASSERT_GREATER( prevValue, newValue );
+		prevValue = newValue;
+	}
+	UT_ASSERT_EQUAL( prevValue, 0 );
 }
 
 void MydbUnitTest::PerformTest()

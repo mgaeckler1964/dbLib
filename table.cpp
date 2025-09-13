@@ -257,7 +257,7 @@ void Table::postRecord()
 			key, true
 		);
 
-		if( !compareVal && posFound && m_currentRecord.m_currentPosition != posFound )
+		if( !compareVal && posFound && m_currentRecord.getCurrentPosition() != posFound )
 		{
 			throw DBkeyViolation( getPathName() );
 		}
@@ -294,12 +294,12 @@ void Table::postRecord()
 			);
 			if( !compareVal && posFound )
 			{
-				if( m_currentRecord.m_currentPosition )
+				if( m_currentRecord.getCurrentPosition() )
 				{
 					theIndex->readRecord( posFound );
 				}
-				if( !m_currentRecord.m_currentPosition
-				|| theIndex->getField( theIndex->getNumFields()-1 )->getIntegerValue() != m_currentRecord.m_currentPosition )
+				if( !m_currentRecord.getCurrentPosition()
+				|| theIndex->getField( theIndex->getNumFields()-1 )->getIntegerValue() != m_currentRecord.getCurrentPosition() )
 				{
 					throw DBkeyViolation( theIndex->getPathName() );
 				}
@@ -326,7 +326,7 @@ void Table::postRecord()
 			myField = getField( indexField->getName() );
 			indexField->setStringValue( myField->getStringValue() );
 		}
-		theIndex->getField( theIndex->getNumFields()-1 )->setIntegerValue( m_currentRecord.m_currentPosition );
+		theIndex->getField( theIndex->getNumFields()-1 )->setIntegerValue( m_currentRecord.getCurrentPosition() );
 		theIndex->postRecord();
 	}
 
@@ -353,7 +353,7 @@ void Table::deleteRecord( bool noMove )
 			searchBuffer += ';';
 		}
 
-		searchBuffer += gak::formatNumber(m_currentRecord.m_currentPosition);
+		searchBuffer += gak::formatNumber(m_currentRecord.getCurrentPosition());
 
 		theIndex->firstRecord( searchBuffer );
 		if( !theIndex->eof() )

@@ -95,6 +95,7 @@ enum RecordMode
 
 struct RecordHeader
 {
+	gak::int64		address;							// my own address
 	gak::int64		topPtr;								// parent record
 	gak::int64		lowerRecordPtr, higherRecordPtr;	// lower/higher records
 	gak::int64		numRecords;							// number of records in this subtree (incl current)
@@ -106,6 +107,14 @@ struct RecordHeader
 	{
 		memset( this, 0, sizeof(*this) );
 	}
+	void clear()
+	{
+		size_t	i = numFields;
+
+		memset( this, 0, sizeof( *this ) );
+		numFields = i;
+	}
+
 };
 
 // --------------------------------------------------------------------- //
@@ -119,15 +128,12 @@ class Record
 
 	private:
 	RecordHeader	m_theHeader;
-	gak::int64		m_currentPosition;
 	long			m_nodeId;
 	FieldValue		*m_values;
 	RecordMode		m_theRecMode;
 
 	Record()
 	{
-		memset( &m_theHeader, 0, sizeof( m_theHeader ) );
-
 		m_theRecMode = rmInsert;
 		m_values = NULL;
 	}
@@ -143,20 +149,21 @@ class Record
 		DbFile *dataFileHandle, RecordHeader *theHeader
 	);
 	static void writeRecordHeader(
-		DbFile *dataFileHandle, const RecordHeader *theHeader
+		DbFile *dataFileHandle, const RecordHeader &theHeader
 	);
-	static void readRecordHeader(
+	static void loadRecordHeader(
 		gak::uint64 pos, DbFile *dataFileHandle, RecordHeader *theHeader
 	)
 	{
 		dataFileHandle->seek( pos );
 		readRecordHeader( dataFileHandle, theHeader );
+		theHeader->address = pos;
 	}
-	static void writeRecordHeader(
-		gak::uint64 pos, DbFile *dataFileHandle, const RecordHeader *theHeader
+	static void updateRecordHeader(
+		DbFile *dataFileHandle, const RecordHeader &theHeader
 	)
 	{
-		dataFileHandle->seek( pos );
+		dataFileHandle->seek( theHeader.address );
 		writeRecordHeader( dataFileHandle, theHeader );
 	}
 	static char *Record::readRecordBuffer(
@@ -188,8 +195,7 @@ class Record
 	void readRecord( DbFile *dataFileHandle );
 	void readRecord( DbFile *dataFileHandle, gak::int64 currentPosition )
 	{
-		m_currentPosition = currentPosition;
-		readRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
+		loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 		readRecord( dataFileHandle );
 	}
 
@@ -203,6 +209,11 @@ class Record
 	void prevRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
 	void lastRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
 	void backupValues( void );
+
+	gak::int64 getCurrentPosition() const
+	{
+		return m_theHeader.address;
+	}
 
 	public:
 	friend class MydbUnitTest;

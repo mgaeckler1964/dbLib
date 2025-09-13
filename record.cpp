@@ -163,7 +163,7 @@ void Record::readRecordHeader(
 }
 
 void Record::writeRecordHeader(
-	DbFile *dataFileHandle, const RecordHeader *theHeader
+	DbFile *dataFileHandle, const RecordHeader &theHeader
 )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::writeRecordHeader" );
@@ -171,15 +171,15 @@ void Record::writeRecordHeader(
 	std::ostringstream	sout;
 
 	sout << std::setfill('0')
-		<< std::setw(INT_LEN) << theHeader->topPtr << ';'
-		<< std::setw(INT_LEN) << theHeader->lowerRecordPtr << ';'
-		<< std::setw(INT_LEN) << theHeader->higherRecordPtr << ';'
-		<< std::setw(INT_LEN) << theHeader->numRecords << ';'
-		<< std::setw(INT_LEN) << theHeader->numFields << ';'
-		<< std::setw(INT_LEN) << theHeader->stringLengths << ';'
-		<< std::setw(INT_LEN) << theHeader->primaryLen << ';'
-		<< std::setw(INT_LEN) << theHeader->bufferLen << ';'
-		<< std::setw(STATUS_LEN) << theHeader->status << ";EOH";
+		<< std::setw(INT_LEN) << theHeader.topPtr << ';'
+		<< std::setw(INT_LEN) << theHeader.lowerRecordPtr << ';'
+		<< std::setw(INT_LEN) << theHeader.higherRecordPtr << ';'
+		<< std::setw(INT_LEN) << theHeader.numRecords << ';'
+		<< std::setw(INT_LEN) << theHeader.numFields << ';'
+		<< std::setw(INT_LEN) << theHeader.stringLengths << ';'
+		<< std::setw(INT_LEN) << theHeader.primaryLen << ';'
+		<< std::setw(INT_LEN) << theHeader.bufferLen << ';'
+		<< std::setw(STATUS_LEN) << theHeader.status << ";EOH";
 	sout.flush();
 	dataFileHandle->write( sout.str().c_str(), HEADER_LENGTH );
 }
@@ -237,6 +237,7 @@ int Record::locateValue(
 		}
 
 		readRecordHeader( dataFileHandle, headerFound );
+		headerFound->address = newPosition;
 
 		{
 			gak::Buffer<char> tmpRecord = readRecordBuffer(
@@ -333,7 +334,7 @@ void Record::createRecord( const FieldDefinitions &definitions )
 		delete [] m_values;
 
 	m_theHeader.numFields = definitions.size();
-	m_currentPosition = 0;
+	m_theHeader.address = 0;
 
 	m_values = new FieldValue[m_theHeader.numFields];
 	const FieldDefinition *definition = definitions.getDataBuffer();
@@ -349,15 +350,11 @@ void Record::setInsertMode( void )
 
 	if( m_theRecMode != rmInsert )
 	{
-		size_t	i = m_theHeader.numFields;
+		m_theHeader.clear();
 
-		memset( &m_theHeader, 0, sizeof( m_theHeader ) );
-		m_theHeader.numFields = i;
-
-		for( i=0; i<m_theHeader.numFields; i++ )
+		for( size_t i=0; i<m_theHeader.numFields; i++ )
 			m_values[i].setNull();
 
-		m_currentPosition = 0;
 		m_theRecMode = rmInsert;
 	}
 }
@@ -397,14 +394,14 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 	// rebalance
 	bool higherIsPrev = (curHeader.higherRecordPtr == prevPos);
 	gak::int64	otherPos = higherIsPrev ? curHeader.lowerRecordPtr : curHeader.higherRecordPtr;
-	if( otherPos ) readRecordHeader( otherPos, dataFileHandle, &otherHeader );
+	if( otherPos ) loadRecordHeader( otherPos, dataFileHandle, &otherHeader );
 
 	RecordHeader	tmpHeader;
 	gak::int64		tmpPos;
 
 	RecordHeader	rootHeader;
 	gak::int64		rootPos = curHeader.topPtr;
-	readRecordHeader( rootPos, dataFileHandle, &rootHeader );
+	loadRecordHeader( rootPos, dataFileHandle, &rootHeader );
 
 	if( !higherIsPrev && cur2Small )
 	{
@@ -416,7 +413,7 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 		//        (2)<-        -> cur(5)
 		//                tmp(4)<-      -> other(7)
 		tmpPos = prevHeader.higherRecordPtr;
-		if(tmpPos) readRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
+		if(tmpPos) loadRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
 
 		prevHeader.topPtr = curHeader.topPtr;
 		prevHeader.higherRecordPtr = curPos;
@@ -448,7 +445,7 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 		// (2)<-       ->(4)
 		assert( otherPos );
 		tmpPos = otherHeader.lowerRecordPtr;
-		if(tmpPos) readRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
+		if(tmpPos) loadRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
 
 		otherHeader.topPtr = curHeader.topPtr;
 		otherHeader.lowerRecordPtr = curPos;
@@ -479,7 +476,7 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 		//                   (6)<-       ->(8)
 		assert( otherPos );
 		tmpPos = otherHeader.higherRecordPtr;
-		if(tmpPos) readRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
+		if(tmpPos) loadRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
 
 		otherHeader.topPtr = curHeader.topPtr;
 		otherHeader.higherRecordPtr = curPos;
@@ -510,7 +507,7 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 		// (2)<-        ->(4)
 
 		tmpPos = prevHeader.lowerRecordPtr;
-		if(tmpPos) readRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
+		if(tmpPos) loadRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
 
 		prevHeader.topPtr = curHeader.topPtr;
 		prevHeader.lowerRecordPtr = curPos;
@@ -530,14 +527,14 @@ gak::int64 Record::rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordH
 			rootHeader.higherRecordPtr = prevPos;
 	}
 
-	writeRecordHeader( curPos, dataFileHandle, &curHeader );
-	writeRecordHeader( prevPos, dataFileHandle, &prevHeader );
+	updateRecordHeader( dataFileHandle, curHeader );
+	updateRecordHeader( dataFileHandle, prevHeader );
 
-	if(otherPos) writeRecordHeader( otherPos, dataFileHandle, &otherHeader );
-	if(tmpPos) writeRecordHeader( tmpPos, dataFileHandle, &tmpHeader );
+	if(otherPos) updateRecordHeader( dataFileHandle, otherHeader );
+	if(tmpPos) updateRecordHeader( dataFileHandle, tmpHeader );
 
 	rootHeader.numRecords++;
-	writeRecordHeader( rootPos, dataFileHandle, &rootHeader );
+	updateRecordHeader( dataFileHandle, rootHeader );
 
 	curHeader = rootHeader;
 	return rootPos;
@@ -568,17 +565,20 @@ void Record::postRecord( DbFile *dataFileHandle )
 		compareVal = locateValue( dataFileHandle, &curPos, &curHeader, theValues, false );
 	}
 
+
+	// now we can create the new record
+	gak::int64 newPosition = dataFileHandle->toEnd();
+
+	m_theHeader.address = newPosition;
 	m_theHeader.topPtr = curPos;
 	m_theHeader.lowerRecordPtr = m_theHeader.higherRecordPtr = 0; 
 	m_theHeader.numRecords = 1;
 
-	// now we can create the new record
-	m_currentPosition = dataFileHandle->toEnd();
 	theStringLengths += ";EOB";
 	theValues += ";EOB";
 	m_theHeader.stringLengths = strlen( theStringLengths );
 	m_theHeader.bufferLen = strlen( theValues );
-	writeRecordHeader( dataFileHandle, &m_theHeader );
+	writeRecordHeader( dataFileHandle, m_theHeader );
 	dataFileHandle->write( (void*)((const char *)theValues), m_theHeader.bufferLen );
 	dataFileHandle->write( (void*)((const char *)theStringLengths), m_theHeader.stringLengths );
 
@@ -586,12 +586,12 @@ void Record::postRecord( DbFile *dataFileHandle )
 	if( curPos )
 	{
 		if( compareVal < 0 )
-			curHeader.higherRecordPtr = m_currentPosition;
+			curHeader.higherRecordPtr = newPosition;
 		else if( compareVal > 0 )
-			curHeader.lowerRecordPtr = m_currentPosition;
+			curHeader.lowerRecordPtr = newPosition;
 		curHeader.numRecords++;
 
-		writeRecordHeader( curPos, dataFileHandle, &curHeader );
+		updateRecordHeader( dataFileHandle, curHeader );
 		gak::int64 prevSize = 1;
 		gak::int64 prevPos = curPos;
 		RecordHeader prevHeader = curHeader;
@@ -600,7 +600,7 @@ void Record::postRecord( DbFile *dataFileHandle )
 			curPos = curHeader.topPtr;
 			if( curPos > 0 )
 			{
-				readRecordHeader( curPos, dataFileHandle, &curHeader );
+				loadRecordHeader( curPos, dataFileHandle, &curHeader );
 				gak::int64 curSize = ++curHeader.numRecords;
 
 				if( curHeader.topPtr > 0 )
@@ -618,7 +618,7 @@ void Record::postRecord( DbFile *dataFileHandle )
 					else
 #endif
 					{
-						writeRecordHeader( curPos, dataFileHandle, &curHeader );
+						updateRecordHeader( dataFileHandle, curHeader );
 					}
 					prevSize = curSize;
 					prevPos = curPos;
@@ -627,7 +627,7 @@ void Record::postRecord( DbFile *dataFileHandle )
 				else
 				{
 					// the current record is the root -> update the recordf then break;
-					writeRecordHeader( curPos, dataFileHandle, &curHeader );
+					updateRecordHeader( dataFileHandle, curHeader );
 					break;
 				}
 			}
@@ -655,7 +655,7 @@ void Record::deleteRecord( DbFile *dataFileHandle, bool noMove )
 	doEnterFunctionEx( gakLogging::llDetail, "Record::deleteRecord" );
 	SetDeleted( &m_theHeader );
 
-	writeRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+	updateRecordHeader( dataFileHandle, m_theHeader );
 
 	if( !noMove )
 	{
@@ -675,8 +675,7 @@ void Record::root( DbFile *dataFileHandle )
 		m_theRecMode = rmEof;
 	else
 	{
-		m_currentPosition = TABLE_HEADER_SIZE;
-		readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+		loadRecordHeader( TABLE_HEADER_SIZE, dataFileHandle, &m_theHeader );
 	}
 }
 
@@ -688,13 +687,13 @@ void Record::firstRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 		m_theRecMode = rmEof;
 	else
 	{
-		m_currentPosition = TABLE_HEADER_SIZE;
+		gak::int64 currentPosition = TABLE_HEADER_SIZE;
 		while( true )
 		{
-			readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+			loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 
 			if( m_theHeader.lowerRecordPtr )
-				m_currentPosition = m_theHeader.lowerRecordPtr;
+				currentPosition = m_theHeader.lowerRecordPtr;
 			else if( !IsDeleted( m_theHeader ) )
 			{
 				readRecord( dataFileHandle );
@@ -721,6 +720,7 @@ void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 	doEnterFunctionEx( gakLogging::llDetail, "Record::nextRecord" );
 	gak::int64	oldPosition;
 	bool		found;
+	gak::int64	currentPosition = m_theHeader.address;
 	do
 	{
 		found = false;
@@ -731,12 +731,12 @@ void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 				if there is a higher record, we walk to this record and
 				then go to the lowes possible record from here
 			*/
-			m_currentPosition = m_theHeader.higherRecordPtr;
-			readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+			currentPosition = m_theHeader.higherRecordPtr;
+			loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 			while( m_theHeader.lowerRecordPtr )
 			{
-				m_currentPosition = m_theHeader.lowerRecordPtr;
-				readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+				currentPosition = m_theHeader.lowerRecordPtr;
+				loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 			}
 			found = true;	// whe have found a possible record
 		}
@@ -748,12 +748,12 @@ void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 			*/
 			while( !found )
 			{
-				oldPosition = m_currentPosition;
-				m_currentPosition = m_theHeader.topPtr;
-				if( !m_currentPosition )
+				oldPosition = currentPosition;
+				currentPosition = m_theHeader.topPtr;
+				if( !currentPosition )
 /*v*/				break;					// the end no more data
 
-				readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+				loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 
 				if( m_theHeader.higherRecordPtr == oldPosition )
 /*^*/				continue;				// go to next top node
@@ -761,9 +761,9 @@ void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 					found = true;			// may be this is not deleted
 			}
 		}
-	} while( (!found || IsDeleted( m_theHeader )) && m_currentPosition );
+	} while( (!found || IsDeleted( m_theHeader )) && currentPosition );
 
-	if( !m_currentPosition )
+	if( !currentPosition )
 		m_theRecMode = rmEof;
 	else
 	{
@@ -782,6 +782,7 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::prevRecord" );
 	bool	found;
+	gak::int64	currentPosition = m_theHeader.address;
 	do
 	{
 		found = false;
@@ -792,12 +793,12 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 				if there is a lower record, we walk to this record and
 				then go to the highest possible record from here
 			*/
-			m_currentPosition = m_theHeader.lowerRecordPtr;
-			readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+			currentPosition = m_theHeader.lowerRecordPtr;
+			loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 			while( m_theHeader.higherRecordPtr )
 			{
-				m_currentPosition = m_theHeader.higherRecordPtr;
-				readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+				currentPosition = m_theHeader.higherRecordPtr;
+				loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 			}
 			found = true;
 		}
@@ -809,13 +810,13 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 			*/
 			while( !found )
 			{
-				gak::int64	oldPosition = m_currentPosition;
-				m_currentPosition = m_theHeader.topPtr;
+				gak::int64	oldPosition = currentPosition;
+				currentPosition = m_theHeader.topPtr;
 
-				if( !m_currentPosition )
+				if( !currentPosition )
 /*v*/				break;					// the end no more data
 
-				readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+				loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 
 				if( m_theHeader.lowerRecordPtr == oldPosition )
 /*^*/				continue;				// go to next top node
@@ -823,9 +824,9 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 					found = true;			// may be this is not deleted
 			}
 		}
-	} while( (!found || IsDeleted( m_theHeader )) && m_currentPosition );
+	} while( (!found || IsDeleted( m_theHeader )) && currentPosition );
 
-	if( !m_currentPosition )
+	if( !currentPosition )
 		m_theRecMode = rmBof;
 	else
 	{
@@ -848,13 +849,13 @@ void Record::lastRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 		m_theRecMode = rmBof;
 	else
 	{
-		m_currentPosition = TABLE_HEADER_SIZE;
+		gak::int64	currentPosition = TABLE_HEADER_SIZE;
 		while( true )
 		{
-			readRecordHeader( m_currentPosition, dataFileHandle, &m_theHeader );
+			loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
 
 			if( m_theHeader.higherRecordPtr )
-				m_currentPosition = m_theHeader.higherRecordPtr;
+				currentPosition = m_theHeader.higherRecordPtr;
 			else if( !IsDeleted( m_theHeader ) )
 			{
 				readRecord( dataFileHandle );
