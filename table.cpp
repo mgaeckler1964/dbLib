@@ -163,9 +163,9 @@ void Table::writeDefinition() const
 	}
 }
 
-Index *Table::findIndex( const STRING &indexPath ) const
+Index *Table::findIndexFromPath( const STRING &indexPath ) const
 {
-	doEnterFunctionEx( gakLogging::llDetail, "Table::findIndex" );
+	doEnterFunctionEx( gakLogging::llDetail, "Table::findIndexFromPath" );
 
 	size_t	i;
 
@@ -210,7 +210,7 @@ void Table::open()
 			Element		*theXmlIndex = theXmlIndexDefs->getElement( i );
 			if( theXmlIndex && theXmlIndex->getTag() == "INDEX" )
 			{
-				STRING	indexPath = getPathName() + '.' + theXmlIndex->getAttribute( "NAME" );
+				STRING	indexPath = getIndexPathName(theXmlIndex->getAttribute( "NAME" ));
 
 				Index	*newIndex = new Index( indexPath );
 				newIndex->open( theXmlIndex );
@@ -461,9 +461,9 @@ void Table::lastRecord( const STRING &searchBuffer )
 void Table::createIndex( const STRING &indexName )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::createIndex" );
-	STRING	indexPath = getPathName() + '.' + indexName;
+	STRING	indexPath = getIndexPathName(indexName);
 
-	if( findIndex( indexPath ) )
+	if( findIndexFromPath( indexPath ) )
 		throw DBindexExist( indexName );
 
 	Index	*newIndex = new Index( indexPath );
@@ -477,9 +477,9 @@ void Table::addFieldToIndex( const STRING &indexName, const STRING &fieldName, b
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::addFieldToIndex" );
 	Index	*theIndex;
-	STRING	indexPath = getPathName() + '.' + indexName;
+	STRING	indexPath = getIndexPathName(indexName);
 
-	if( (theIndex = findIndex( indexPath )) == NULL )
+	if( (theIndex = findIndexFromPath( indexPath )) == NULL )
 		throw DBindexNotFound( indexName );
 
 	size_t	fieldIdx = findField( fieldName );
@@ -503,13 +503,28 @@ void Table::setIndex( const STRING &indexName )
 	doEnterFunctionEx( gakLogging::llDetail, "Table::setIndex" );
 	if( indexName[0U] )
 	{
-		STRING	indexPath = getPathName() + '.' + indexName;
+		STRING	indexPath = getIndexPathName(indexName);
 
-		if( (m_currentIndex = findIndex( indexPath )) == NULL )
+		if( (m_currentIndex = findIndexFromPath( indexPath )) == NULL )
 			throw DBindexNotFound( indexName );
 	}
 	else
 		m_currentIndex = NULL;
+}
+
+void Table::dropIndex( const gak::STRING &indexName )
+{
+	doEnterFunctionEx( gakLogging::llDetail, "Table::dropIndex" );
+	Index	*theIndex;
+	STRING	indexPath = getIndexPathName(indexName);
+
+	if( (theIndex = findIndexFromPath( indexPath )) == NULL )
+		throw DBindexNotFound( indexName );
+
+	theIndex->dropDataFile();
+	m_indices.removeElementVal( theIndex );
+	delete theIndex;
+	writeDefinition();
 }
 
 // --------------------------------------------------------------------- //

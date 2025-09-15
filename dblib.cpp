@@ -107,8 +107,28 @@ void MydbUnitTest::createIndexTable(dbLib::Database *db)
 	t1->addField( PRIM_INDEX_FIELD, dbLib::ftInteger, true, true );
 	t1->addField( SEC_INDEX_FIELD, dbLib::ftInteger );
 
+	UT_ASSERT_EXCEPTION(
+		t1->dropIndex( SEC_INDEX ), 
+		dbLib::DBindexNotFound
+	);
+
 	t1->createIndex( SEC_INDEX );
 	t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true );
+
+	t1->dropIndex(SEC_INDEX);
+
+	UT_ASSERT_EXCEPTION(
+		t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true ), 
+		dbLib::DBindexNotFound
+	);
+
+	t1->createIndex( SEC_INDEX );
+	t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true );
+
+	UT_ASSERT_EXCEPTION(
+		t1->createIndex( SEC_INDEX ),
+		dbLib::DBindexExist
+	);
 }
 
 void MydbUnitTest::createTable(dbLib::Database *db)

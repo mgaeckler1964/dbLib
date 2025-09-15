@@ -90,6 +90,7 @@ static const size_t	TABLE_HEADER_SIZE = sizeof(TABLE_HEADER)-1;
 
 class Index
 {
+	bool			m_dropAfterClose;
 	gak::STRING		m_pathName;
 	gak::STRING		m_dataFile;
 
@@ -111,7 +112,8 @@ class Index
 	{
 		m_pathName = pathName;
 
-		m_dataFileHandle = NULL;
+		m_dataFileHandle = nullptr;
+		m_dropAfterClose = false;
 
 		m_dataFile = pathName;
 		m_dataFile += ".data";
@@ -121,6 +123,8 @@ class Index
 	{
 		if( m_dataFileHandle )
 			closeTableFile( m_dataFileHandle );
+		if( m_dropAfterClose )
+			strRemove( m_dataFile );
 	}
 
 	void open( gak::xml::Element*theXmlFieldDefs );
@@ -191,6 +195,11 @@ class Index
 		return m_pathName;
 	}
 
+	const gak::STRING getIndexPathName( const gak::STRING &indexName )
+	{
+		return getPathName() + '.' + indexName;
+	}
+
 	int locateValue(
 		gak::int64 *posFound,
 		const gak::STRING &searchFor, bool primary
@@ -221,6 +230,11 @@ class Index
 	const Record &getRecord() const
 	{
 		return m_currentRecord;
+	}
+
+	void dropDataFile()
+	{
+		m_dropAfterClose = true;
 	}
 };
 
