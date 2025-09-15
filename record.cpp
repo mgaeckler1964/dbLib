@@ -559,12 +559,11 @@ void Record::postRecord( DbFile *dataFileHandle )
 	// create the unique node id
 	theValues += gak::formatBinary(fileLength, 16, 16, '0');
 
-	if( fileLength )
+	if( fileLength>0 )
 	{
 		curPos = TABLE_HEADER_SIZE;
 		compareVal = locateValue( dataFileHandle, &curPos, &curHeader, theValues, false );
 	}
-
 
 	// now we can create the new record
 	gak::int64 newPosition = dataFileHandle->toEnd();

@@ -55,7 +55,7 @@ class MydbUnitTest : public gak::UnitTest
 	}
 
 	void createSimpleTable(dbLib::Database *db);
-	void fillSimpleTable(dbLib::Table *tab, int count);
+	void fillSimpleTable(dbLib::Table *tab, int count, bool negative);
 
 	void createTable(dbLib::Database *db);
 	void fillTable(dbLib::Table *tab);
@@ -106,14 +106,14 @@ void MydbUnitTest::createTable(dbLib::Database *db)
 	t1->addFieldToIndex( "INT_FIELD", "INT_FIELD", true, true );
 }
 
-void MydbUnitTest::fillSimpleTable(dbLib::Table *tab, int count)
+void MydbUnitTest::fillSimpleTable(dbLib::Table *tab, int count, bool negative)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::fillSimpleTable" );
 
-	for( int i=0; i<count; ++i )
+	for( int i=1; i<=count; ++i )
 	{
 		tab->insertRecord();
-		tab->getField( MY_ONLY_FIELD )->setIntegerValue( i );
+		tab->getField( MY_ONLY_FIELD )->setIntegerValue( negative ? -i : i );
 		tab->postRecord();
 	}
 }
@@ -277,26 +277,39 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 
 	std::auto_ptr<dbLib::Table> 	 tt( db->openTable( simple ) );
 
-	const int numData = 1600;
-	fillSimpleTable(tt.get(), numData);
+	const int numData = 800;
 
-	int prevValue = -1;
-	for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
 	{
-		int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-		UT_ASSERT_LESS( prevValue, newValue );
-		prevValue = newValue;
-	}
-	UT_ASSERT_EQUAL( prevValue, numData-1 );
+		fillSimpleTable(tt.get(), numData, false);
+		int prevValue = 0;
+		for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
+		{
+			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+			UT_ASSERT_LESS( prevValue, newValue );
+			prevValue = newValue;
+		}
+		UT_ASSERT_EQUAL( prevValue, numData );
 
-	prevValue = numData;
-	for( tt->lastRecord(); !tt->bof(); tt->previousRecord() )
-	{
-		int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-		UT_ASSERT_GREATER( prevValue, newValue );
-		prevValue = newValue;
+		prevValue = numData+1;
+		for( tt->lastRecord(); !tt->bof(); tt->previousRecord() )
+		{
+			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+			UT_ASSERT_GREATER( prevValue, newValue );
+			prevValue = newValue;
+		}
+		UT_ASSERT_EQUAL( prevValue, 1 );
 	}
-	UT_ASSERT_EQUAL( prevValue, 0 );
+	{
+		fillSimpleTable(tt.get(), numData, true);
+		int prevValue = -numData-1;
+		for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
+		{
+			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+			UT_ASSERT_LESS( prevValue, newValue );
+			prevValue = newValue;
+		}
+		UT_ASSERT_EQUAL( prevValue, numData );
+	}
 }
 
 void MydbUnitTest::PerformTest()

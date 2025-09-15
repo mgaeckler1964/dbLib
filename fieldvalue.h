@@ -40,9 +40,12 @@
 // ----- includes ------------------------------------------------------ //
 // --------------------------------------------------------------------- //
 
+#include <limits>
+
 #include <gak/string.h>
 #include <gak/fmtNumber.h>
 #include <gak/numericString.h>
+#include <gak/types.h>
 
 // --------------------------------------------------------------------- //
 // ----- imported datas ------------------------------------------------ //
@@ -162,11 +165,14 @@ class FieldValue
 	void setIntegerValue( long value )
 	{
 		backupValue();
-		m_fieldValue = gak::formatBinary(value, 16, 16 );
+		m_fieldValue = gak::formatBinary(
+			gak::uint64(gak::int64(value) + std::numeric_limits<gak::int64>::max() + 1), 
+			16, 16 
+		);
 	}
 	long getIntegerValue() const
 	{
-		return m_fieldValue.getValueN<long>(16);
+		return long(m_fieldValue.getValueN<gak::uint64>(16) - std::numeric_limits<gak::int64>::max() - 1);
 	}
 	void setDoubleValue( double value )
 	{
