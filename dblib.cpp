@@ -45,7 +45,12 @@ using gak::F_STRING;
 
 const char test1[] = "test1";
 const char simple[] = "simple";
+const char indexTable[] = "indexTable";
 const char MY_ONLY_FIELD[] = "MY_ONLY_FIELD";
+
+const char PRIM_INDEX_FIELD[] = "PRIM_INDEX_FIELD";
+const char SEC_INDEX_FIELD[] = "SEC_INDEX_FIELD";
+const char SEC_INDEX[] = "SEC_INDEX";
 
 class MydbUnitTest : public gak::UnitTest
 {
@@ -56,6 +61,8 @@ class MydbUnitTest : public gak::UnitTest
 
 	void createSimpleTable(dbLib::Database *db);
 	void fillSimpleTable(dbLib::Table *tab, int count, bool negative);
+
+	void createIndexTable(dbLib::Database *db);
 
 	void createTable(dbLib::Database *db);
 	void fillTable(dbLib::Table *tab);
@@ -68,6 +75,7 @@ class MydbUnitTest : public gak::UnitTest
 	void processTables4(dbLib::Table *tab);
 
 	void simpleTest(dbLib::Database *db);
+	void indexTest(dbLib::Database *db);
 
 	virtual void PerformTest();
 };
@@ -88,6 +96,19 @@ void MydbUnitTest::createSimpleTable(dbLib::Database *db)
 	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( simple ) );
 
 	t1->addField( MY_ONLY_FIELD, dbLib::ftInteger, true, true );	// this is my primary index
+}
+
+void MydbUnitTest::createIndexTable(dbLib::Database *db)
+{
+	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::createIndexTable" );
+
+	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( indexTable ) );
+
+	t1->addField( PRIM_INDEX_FIELD, dbLib::ftInteger, true, true );
+	t1->addField( SEC_INDEX_FIELD, dbLib::ftInteger );
+
+	t1->createIndex( SEC_INDEX );
+	t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true );
 }
 
 void MydbUnitTest::createTable(dbLib::Database *db)
@@ -325,6 +346,46 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		UT_ASSERT_EQUAL( firstValue, std::numeric_limits<long>::min() );
 		UT_ASSERT_EQUAL( lastValue, std::numeric_limits<long>::max() );
 	}
+	{
+		tt->insertRecord();
+		tt->getField( MY_ONLY_FIELD )->setIntegerValue( 0 );
+		tt->postRecord();
+		tt->insertRecord();
+		tt->getField( MY_ONLY_FIELD )->setIntegerValue( 0 );
+		UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+	}
+}
+
+void MydbUnitTest::indexTest(dbLib::Database *db)
+{
+	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::simpleTest" );
+
+	createIndexTable(db);
+
+	std::auto_ptr<dbLib::Table> 	 tt( db->openTable( indexTable ) );
+
+	tt->insertRecord();
+	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 0 );
+	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 0 );
+	tt->postRecord();
+
+	tt->insertRecord();
+	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 1 );
+	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 1 );
+	tt->postRecord();
+
+	tt->insertRecord();
+	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 0 );
+	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 2 );
+	UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+
+	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 2 );
+	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 0 );
+	UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+
+	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 2 );
+	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 2 );
+	tt->postRecord();
 }
 
 void MydbUnitTest::PerformTest()
@@ -333,6 +394,7 @@ void MydbUnitTest::PerformTest()
 	std::auto_ptr<dbLib::Database>	db( dbLib::Database::createDB( "", "c:\\temp\\gak\\", "gak", "" ) );
 
 	simpleTest(db.get());
+	indexTest(db.get());
 
 	createTable(db.get());
 
@@ -355,6 +417,7 @@ void MydbUnitTest::PerformTest()
 
 	db->dropTable(test1);
 	db->dropTable(simple);
+	db->dropTable(indexTable);
 
 	UT_ASSERT_EXCEPTION(db->openTable( test1 ), dbLib::DBtableNotFound);
 }
