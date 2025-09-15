@@ -126,10 +126,12 @@ class Index
 		if( m_dropAfterClose )
 			strRemove( m_dataFile );
 	}
+	static const size_t no_index;
 
 	void open( gak::xml::Element*theXmlFieldDefs );
 	void writeXmlDefinition( gak::xml::Element *theXmlFieldDefs ) const;
 
+	void truncateFile();
 	void create();
 	bool bof() const
 	{

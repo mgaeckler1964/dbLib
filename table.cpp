@@ -176,6 +176,61 @@ Index *Table::findIndexFromPath( const STRING &indexPath ) const
 	return NULL;
 }
 
+void Table::checkKeyViolation(Index *theIndex)
+{
+	STRING		key;
+
+	for( size_t fieldIdx=0; fieldIdx < theIndex->getNumFields()-1; fieldIdx++ )
+	{
+		FieldValue	*indexField = theIndex->getField( fieldIdx );
+		if( indexField->isPrimary() )
+		{
+			FieldValue	*myField = getField( indexField->getName() );
+			if( fieldIdx )
+				key += ';';
+			key += myField->getStringValue();
+		}
+		else
+/*v*/		break;
+	}
+
+	if( key[0U] )
+	{
+		gak::int64 posFound;
+		int compareVal = theIndex->locateValue(
+			&posFound,
+			key, true
+		);
+		if( !compareVal && posFound )
+		{
+			if( m_currentRecord.getCurrentPosition() )
+			{
+				theIndex->readRecord( posFound );
+			}
+			if( !m_currentRecord.getCurrentPosition()
+			|| theIndex->getField( theIndex->getNumFields()-1 )->getIntegerValue() != m_currentRecord.getCurrentPosition() )
+			{
+				throw DBkeyViolation( theIndex->getPathName() );
+			}
+		}
+	}
+}
+
+void Table::insertKeyRecord(Index *theIndex)
+{
+	FieldValue	*myField, *indexField;
+
+	theIndex->insertRecord();
+	for( size_t fieldIdx=0; fieldIdx < theIndex->getNumFields()-1; fieldIdx++ )
+	{
+		indexField = theIndex->getField( fieldIdx );
+		myField = getField( indexField->getName() );
+		indexField->setStringValue( myField->getStringValue() );
+	}
+	theIndex->getField( theIndex->getNumFields()-1 )->setIntegerValue( m_currentRecord.getCurrentPosition() );
+	theIndex->postRecord();
+}
+
 // --------------------------------------------------------------------- //
 // ----- class protected ----------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -243,16 +298,14 @@ void Table::postRecord()
 
 	// my own key:
 	//============
-	gak::int64	posFound;
-	int			compareVal;
 	STRING		key;
-	size_t		i, numIndices = m_indices.size();
 
 	m_currentRecord.getRecord( &key, true, NULL );
 
 	if( key[0U] )
 	{
-		compareVal = locateValue(
+		gak::int64	posFound;
+		int compareVal = locateValue(
 			&posFound,
 			key, true
 		);
@@ -266,45 +319,11 @@ void Table::postRecord()
 	// unique indices
 	//===============
 
-	for( i=0; i<numIndices; i++ )
+	size_t	numIndices = m_indices.size();
+	for( size_t i=0; i<numIndices; i++ )
 	{
 		Index		*theIndex = m_indices[i];
-		FieldValue	*myField, *indexField;
-
-		key = "";
-		for( size_t fieldIdx=0; fieldIdx < theIndex->getNumFields()-1; fieldIdx++ )
-		{
-			indexField = theIndex->getField( fieldIdx );
-			if( indexField->isPrimary() )
-			{
-				myField = getField( indexField->getName() );
-				if( fieldIdx )
-					key += ';';
-				key += myField->getStringValue();
-			}
-			else
-/*v*/			break;
-		}
-
-		if( key[0U] )
-		{
-			compareVal = theIndex->locateValue(
-				&posFound,
-				key, true
-			);
-			if( !compareVal && posFound )
-			{
-				if( m_currentRecord.getCurrentPosition() )
-				{
-					theIndex->readRecord( posFound );
-				}
-				if( !m_currentRecord.getCurrentPosition()
-				|| theIndex->getField( theIndex->getNumFields()-1 )->getIntegerValue() != m_currentRecord.getCurrentPosition() )
-				{
-					throw DBkeyViolation( theIndex->getPathName() );
-				}
-			}
-		}
+		checkKeyViolation(theIndex);
 	}
 
 	if( m_currentRecord.m_theRecMode == rmBrowse )
@@ -314,20 +333,10 @@ void Table::postRecord()
 
 	m_currentRecord.postRecord( m_dataFileHandle );
 
-	for( i=0; i<numIndices; i++ )
+	for( size_t i=0; i<numIndices; i++ )
 	{
 		Index		*theIndex = m_indices[i];
-		FieldValue	*myField, *indexField;
-
-		theIndex->insertRecord();
-		for( size_t fieldIdx=0; fieldIdx < theIndex->getNumFields()-1; fieldIdx++ )
-		{
-			indexField = theIndex->getField( fieldIdx );
-			myField = getField( indexField->getName() );
-			indexField->setStringValue( myField->getStringValue() );
-		}
-		theIndex->getField( theIndex->getNumFields()-1 )->setIntegerValue( m_currentRecord.getCurrentPosition() );
-		theIndex->postRecord();
+		insertKeyRecord(theIndex);
 	}
 
 	// if we have survived the post, backup the values
@@ -482,8 +491,11 @@ void Table::addFieldToIndex( const STRING &indexName, const STRING &fieldName, b
 	if( (theIndex = findIndexFromPath( indexPath )) == NULL )
 		throw DBindexNotFound( indexName );
 
+	if( theIndex == m_currentIndex )
+		throw DBindexExist( indexName );		/// TODO better exception
+
 	size_t	fieldIdx = findField( fieldName );
-	if( fieldIdx == (size_t)-1 )
+	if( fieldIdx == Index::no_index )
 	{
 		throw DBfieldNotFound( fieldName );
 	}
@@ -493,9 +505,34 @@ void Table::addFieldToIndex( const STRING &indexName, const STRING &fieldName, b
 	theIndex->addField( fieldName, fieldDef.type, primary );
 
 	if( lastField )
+	{
 		theIndex->addField( "REC_POS", ftNumber, false );
+		try
+		{
+			refreshIndex(theIndex);
+		}
+		catch( ... )
+		{
+			dropIndex(indexName);
+			throw;
+		}
+	}
 
 	writeDefinition();
+}
+
+void Table::refreshIndex( Index *theIndex )
+{
+	doEnterFunctionEx( gakLogging::llDetail, "Table::refreshIndex" );
+	assert( theIndex != m_currentIndex );
+
+	theIndex->truncateFile();
+
+	for( firstRecord(); !eof(); nextRecord() )
+	{
+		checkKeyViolation(theIndex);
+		insertKeyRecord(theIndex);
+	}
 }
 
 void Table::setIndex( const STRING &indexName )
@@ -520,6 +557,9 @@ void Table::dropIndex( const gak::STRING &indexName )
 
 	if( (theIndex = findIndexFromPath( indexPath )) == NULL )
 		throw DBindexNotFound( indexName );
+
+	if(  theIndex == m_currentIndex )
+		m_currentIndex = nullptr;
 
 	theIndex->dropDataFile();
 	m_indices.removeElementVal( theIndex );

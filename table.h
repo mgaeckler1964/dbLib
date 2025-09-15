@@ -90,6 +90,9 @@ class Table : public Index
 
 	Index *findIndexFromPath( const gak::STRING &indexPath ) const;
 
+	void checkKeyViolation(Index *theIndex);
+	void insertKeyRecord(Index *theIndex);
+
 	public:
 	Table( const gak::STRING &pathName ) : Index( pathName )
 	{
@@ -116,6 +119,7 @@ class Table : public Index
 
 	void createIndex( const gak::STRING &indexName );
 	void addFieldToIndex( const gak::STRING &indexName, const gak::STRING &fieldName, bool primary, bool lastField=false );
+	void refreshIndex( Index *theIndex );
 	void setIndex( const gak::STRING &indexName );
 	void dropIndex( const gak::STRING &indexName );
 };

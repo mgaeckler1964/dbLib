@@ -93,6 +93,8 @@ using gak::xml::Any;
 // ----- class static data --------------------------------------------- //
 // --------------------------------------------------------------------- //
 
+const size_t Index::no_index = -1;
+
 // --------------------------------------------------------------------- //
 // ----- prototypes ---------------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -121,7 +123,7 @@ size_t Index::findField( const char *fieldName )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Index::findField" );
 
-	size_t			fieldIdx = size_t(-1);
+	size_t			fieldIdx = no_index;
 
 	for( size_t i=0; i<m_fieldDefinitions.size(); ++i )
 	{
@@ -203,6 +205,14 @@ void Index::writeXmlDefinition( Element *theXmlFieldDefs ) const
 	}
 }
 
+void Index::truncateFile()
+{
+	closeTableFile( m_dataFileHandle );
+	strRemove( m_dataFile );
+	m_dataFileHandle = openTableFile( m_dataFile );
+	create();
+}
+
 void Index::create()
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Index::create" );
@@ -221,7 +231,7 @@ void Index::addField(
 	doEnterFunctionEx( gakLogging::llDetail, "Index::addField" );
 
 	size_t	fieldIdx = findField( name );
-	if( fieldIdx != size_t(-1) )
+	if( fieldIdx != no_index )
 	{
 		throw DBfieldExist( name );
 	}
@@ -242,7 +252,7 @@ FieldValue *Index::getField( const STRING &name )
 
 	size_t	fieldIdx = findField( name );
 
-	if( fieldIdx == (size_t)-1 )
+	if( fieldIdx == no_index )
 	{
 		throw DBfieldNotFound( name );
 	}
