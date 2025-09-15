@@ -146,6 +146,7 @@ class Index
 	{
 		return m_fieldDefinitions.size();
 	}
+	gak::int64 getNumRecords();
 
 	void addField(
 		const gak::STRING &name, fType type,

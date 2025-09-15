@@ -279,18 +279,25 @@ void MydbUnitTest::createSimpleTable(dbLib::Database *db)
 	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( simple ) );
 
 	t1->addField( MY_ONLY_FIELD, dbLib::ftInteger, true, true );	// this is my primary index
+
+	gak::int64 count = t1->getNumRecords();
+	UT_ASSERT_EQUAL( count, 0 );
 }
 
 void MydbUnitTest::fillSimpleTable(dbLib::Table *tab, int count, bool negative)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::fillSimpleTable" );
 
+	gak::int64 count1 = tab->getNumRecords();
 	for( int i=1; i<=count; ++i )
 	{
 		tab->insertRecord();
 		tab->getField( MY_ONLY_FIELD )->setIntegerValue( negative ? -i : i );
 		tab->postRecord();
 	}
+
+	gak::int64 count2 = tab->getNumRecords();
+	UT_ASSERT_EQUAL( count2 - count1, count );
 }
 
 void MydbUnitTest::simpleTest(dbLib::Database *db)

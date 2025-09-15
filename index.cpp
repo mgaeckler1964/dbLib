@@ -275,6 +275,14 @@ FieldValue *Index::getField( size_t fieldIdx )
 	return m_currentRecord.getFieldValue( fieldIdx );
 }
 
+gak::int64 Index::getNumRecords()
+{
+	doEnterFunctionEx( gakLogging::llDetail, "Index::getNumRecords" );
+
+	root();
+	return m_currentRecord.getHeader().numRecords;
+}
+
 // --------------------------------------------------------------------- //
 // ----- entry points -------------------------------------------------- //
 // --------------------------------------------------------------------- //
