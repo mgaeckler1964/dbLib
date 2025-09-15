@@ -310,6 +310,21 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		}
 		UT_ASSERT_EQUAL( prevValue, numData );
 	}
+	{
+		tt->insertRecord();
+		tt->getField( MY_ONLY_FIELD )->setIntegerValue( std::numeric_limits<long>::min() );
+		tt->postRecord();
+		tt->insertRecord();
+		tt->getField( MY_ONLY_FIELD )->setIntegerValue( std::numeric_limits<long>::max() );
+		tt->postRecord();
+
+		tt->firstRecord();
+		long firstValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+		tt->lastRecord();
+		long lastValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
+		UT_ASSERT_EQUAL( firstValue, std::numeric_limits<long>::min() );
+		UT_ASSERT_EQUAL( lastValue, std::numeric_limits<long>::max() );
+	}
 }
 
 void MydbUnitTest::PerformTest()
