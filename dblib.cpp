@@ -44,6 +44,15 @@ using gak::STRING;
 using gak::F_STRING;
 
 const char test1[] = "test1";
+const char MY_FIRST_FIELD[] = "MY_FIRST_FIELD";
+const char my_FIRST_field[] = "my_FIRST_field";
+const char MY_SECOND_FIELD[] = "MY_SECOND_FIELD";
+const char MY_THIRD_FIELD[] = "MY_THIRD_FIELD";
+const char UNIQUE_INT_FIELD[] = "UNIQUE_INT_FIELD";
+const char NORMAL_INT_FIELD[] = "NORMAL_INT_FIELD";
+const char BOOL_FIELD[] = "BOOL_FIELD";
+const long INT_FILTER = 10;
+
 const char simple[] = "simple";
 const char indexTable[] = "indexTable";
 const char MY_ONLY_FIELD[] = "MY_ONLY_FIELD";
@@ -73,10 +82,10 @@ class MydbUnitTest : public gak::UnitTest
 
 	void assertRecords(dbLib::Table *tab, gak::int64 expected );
 
-	void processTables1(dbLib::Table *tab);
-	void processTables2(dbLib::Table *tab);
-	void processTables3(dbLib::Table *tab);
-	void processTables4(dbLib::Table *tab);
+	void processTablesReadRecords(dbLib::Table *tab);
+	void processTablesUpdateRecords(dbLib::Table *tab);
+	void processTablesNullNkeyViolation(dbLib::Table *tab);
+	void processTablesEmptyTable(dbLib::Table *tab);
 
 	void simpleTest(dbLib::Database *db);
 	void indexTest(dbLib::Database *db);
@@ -103,14 +112,18 @@ void MydbUnitTest::createTable(dbLib::Database *db)
 
 	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( test1 ) );
 
-	t1->addField( "MY_FIRST_FIELD", dbLib::ftString, true, true );	// this is my primary index
-	t1->addField( "MY_SECOND_FIELD", dbLib::ftString );
-	t1->addField( "MY_THIRD_FIELD", dbLib::ftString );
-	t1->addField( "INT_FIELD", dbLib::ftInteger, false, true );
-	t1->addField( "BOOL_FIELD", dbLib::ftBoolean );
+	t1->addField( MY_FIRST_FIELD, dbLib::ftString, true, true );	// this is my primary index
+	t1->addField( MY_SECOND_FIELD, dbLib::ftString );
+	t1->addField( MY_THIRD_FIELD, dbLib::ftString );
+	t1->addField( UNIQUE_INT_FIELD, dbLib::ftInteger, false, true );
+	t1->addField( NORMAL_INT_FIELD, dbLib::ftInteger, false, false );
+	t1->addField( BOOL_FIELD, dbLib::ftBoolean );
 
-	t1->createIndex( "INT_FIELD" );
-	t1->addFieldToIndex( "INT_FIELD", "INT_FIELD", true, true );
+	t1->createIndex( UNIQUE_INT_FIELD );
+	t1->addFieldToIndex( UNIQUE_INT_FIELD, UNIQUE_INT_FIELD, true, true );
+
+	t1->createIndex( NORMAL_INT_FIELD );
+	t1->addFieldToIndex( NORMAL_INT_FIELD, NORMAL_INT_FIELD, false, true );
 }
 
 void MydbUnitTest::fillTable(dbLib::Table *tab)
@@ -119,82 +132,105 @@ void MydbUnitTest::fillTable(dbLib::Table *tab)
 	int i=0;
 
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Blödmann" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Dummkopf" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Knalltüte" );
-	tab->getField( "INT_FIELD" )->setIntegerValue( ++i );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( false );
+	tab->getField( my_FIRST_field )->setStringValue( "Blödmann" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Dummkopf" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Knalltüte" );
+	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( ++i );
+	tab->getField( NORMAL_INT_FIELD )->setIntegerValue( INT_FILTER );
+	tab->getField( BOOL_FIELD )->setBooleanValue( false );
 
 	tab->postRecord();
 
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Martin" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Richard" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Gäckler" );
-	tab->getField( "INT_FIELD" )->setIntegerValue( ++i );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( true );
+	tab->getField( my_FIRST_field )->setStringValue( "Martin" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Richard" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Gäckler" );
+	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( ++i );
+	tab->getField( NORMAL_INT_FIELD )->setIntegerValue( INT_FILTER );
+	tab->getField( BOOL_FIELD )->setBooleanValue( true );
 
 	tab->postRecord();
 
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Armleuchter" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Idiot" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Depp" );
-	tab->getField( "INT_FIELD" )->setIntegerValue( ++i );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( false );
+	tab->getField( my_FIRST_field )->setStringValue( "Armleuchter" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Idiot" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Depp" );
+	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( ++i );
+	tab->getField( NORMAL_INT_FIELD )->setIntegerValue( INT_FILTER+1 );
+	tab->getField( BOOL_FIELD )->setBooleanValue( false );
 
 	tab->postRecord();
 
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Chaot" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Fischer" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Aussi" );
-	tab->getField( "INT_FIELD" )->setIntegerValue( ++i );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( true );
+	tab->getField( my_FIRST_field )->setStringValue( "Chaot" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Fischer" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Aussi" );
+	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( ++i );
+	tab->getField( NORMAL_INT_FIELD )->setIntegerValue( INT_FILTER+1 );
+	tab->getField( BOOL_FIELD )->setBooleanValue( true );
 
 	tab->postRecord();
 }
 
-void MydbUnitTest::processTables1(dbLib::Table *tab)
+void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::processTables1" );
 	std::cout << "Alpha Order:\n";
 	tab->firstRecord();
 
-	UT_ASSERT_EQUAL(tab->getField("my_first_field")->getStringValue(), "Armleuchter" );
+	UT_ASSERT_EQUAL(tab->getField(my_FIRST_field)->getStringValue(), "Armleuchter" );
 	STRING lastString;
 
 	while( !tab->eof() )
 	{
-		lastString = tab->getField("my_first_field")->getStringValue();
-		printStringField(tab,"my_first_field");
-		printStringField(tab,"MY_SECOND_FIELD");
-		printStringField(tab,"MY_THIRD_FIELD");
-		printIntegerField(tab,"INT_FIELD");
-		printBoolField(tab,"BOOL_FIELD");
+		lastString = tab->getField(my_FIRST_field)->getStringValue();
+		printStringField(tab,my_FIRST_field);
+		printStringField(tab,MY_SECOND_FIELD);
+		printStringField(tab,MY_THIRD_FIELD);
+		printIntegerField(tab,UNIQUE_INT_FIELD);
+		printBoolField(tab,BOOL_FIELD);
 
 		tab->nextRecord();
 	}
 	UT_ASSERT_EQUAL(lastString, "Martin" );
 
 	std::cout << "Index Order:\n";
-	tab->setIndex( "INT_FIELD" );
+	tab->setIndex( UNIQUE_INT_FIELD );
 	tab->firstRecord();
 
-	UT_ASSERT_EQUAL(tab->getField("INT_FIELD")->getIntegerValue(), 1 );
+	UT_ASSERT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 1 );
 	int lastInt;
 	while( !tab->eof() )
 	{
-		lastInt = tab->getField("INT_FIELD")->getIntegerValue();
-		printStringField(tab,"my_first_field");
-		printIntegerField(tab,"INT_FIELD");
+		lastInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
+		printStringField(tab,my_FIRST_field);
+		printIntegerField(tab,UNIQUE_INT_FIELD);
 
 		tab->nextRecord();
 	}
 	UT_ASSERT_EQUAL(lastInt, 4 );
+
+	tab->setIndex( NORMAL_INT_FIELD );
+	STRING searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER);
+	int count = 0;
+	for(
+		tab->firstRecord( searchPattern );
+		!tab->eof();
+		tab->nextRecord(searchPattern)
+	)
+	{
+		int uniqueInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
+		if( count )
+		{
+			UT_ASSERT_NOT_EQUAL(lastInt, uniqueInt);
+		}
+		lastInt = uniqueInt;
+		++count;
+	}
+	UT_ASSERT_EQUAL(count, 2);
 }
 
-void MydbUnitTest::processTables2(dbLib::Table *tab)
+void MydbUnitTest::processTablesUpdateRecords(dbLib::Table *tab)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::processTables2" );
 	int i=111;
@@ -202,7 +238,7 @@ void MydbUnitTest::processTables2(dbLib::Table *tab)
 	tab->firstRecord();
 	while( !tab->eof() && !tab->bof() )
 	{
-		tab->getField( "INT_FIELD" )->setIntegerValue( ++i );
+		tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( ++i );
 		tab->postRecord();
 		tab->nextRecord();
 	}
@@ -210,36 +246,36 @@ void MydbUnitTest::processTables2(dbLib::Table *tab)
 
 	std::cout << "Updated Values:\n";
 	tab->firstRecord();
-	UT_ASSERT_EQUAL(tab->getField("INT_FIELD")->getIntegerValue(), 112 );
+	UT_ASSERT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 112 );
 	int lastInt;
 	while( !tab->eof() )
 	{
-		lastInt = tab->getField("INT_FIELD")->getIntegerValue();
-		printStringField(tab,"my_first_field");
-		printIntegerField(tab,"INT_FIELD");
+		lastInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
+		printStringField(tab,my_FIRST_field);
+		printIntegerField(tab,UNIQUE_INT_FIELD);
 		tab->nextRecord();
 	}
 	UT_ASSERT_EQUAL(lastInt, 115 );
 }
 
-void MydbUnitTest::processTables3(dbLib::Table *tab)
+void MydbUnitTest::processTablesNullNkeyViolation(dbLib::Table *tab)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::processTables3" );
 	// test not nulls (post)
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Chaot2" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Fischer" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Aussi" );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( true );
+	tab->getField( my_FIRST_field )->setStringValue( "Chaot2" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Fischer" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Aussi" );
+	tab->getField( BOOL_FIELD )->setBooleanValue( true );
 	UT_ASSERT_EXCEPTION(tab->postRecord(), dbLib::DBnullValueNotAllowed);
 
 	// test key violation
 	tab->insertRecord();
-	tab->getField( "my_first_field" )->setStringValue( "Chaot" );
-	tab->getField( "MY_SECOND_FIELD" )->setStringValue( "Fischer" );
-	tab->getField( "MY_THIRD_FIELD" )->setStringValue( "Aussi" );
-	tab->getField( "INT_FIELD" )->setIntegerValue( 666 );
-	tab->getField( "BOOL_FIELD" )->setBooleanValue( true );
+	tab->getField( my_FIRST_field )->setStringValue( "Chaot" );
+	tab->getField( MY_SECOND_FIELD )->setStringValue( "Fischer" );
+	tab->getField( MY_THIRD_FIELD )->setStringValue( "Aussi" );
+	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( 666 );
+	tab->getField( BOOL_FIELD )->setBooleanValue( true );
 	UT_ASSERT_EXCEPTION(tab->postRecord(), dbLib::DBkeyViolation);
 
 }
@@ -253,7 +289,7 @@ void MydbUnitTest::assertRecords(dbLib::Table *tab, gak::int64 expected)
 	UT_ASSERT_EQUAL( header.numRecords, expected );
 }
 
-void MydbUnitTest::processTables4(dbLib::Table *tab)
+void MydbUnitTest::processTablesEmptyTable(dbLib::Table *tab)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::processTables6" );
 	tab->firstRecord();
@@ -492,13 +528,13 @@ void MydbUnitTest::PerformTest()
 
 		fillTable(t3.get());
 		assertRecords(t1.get(),4);
-		processTables1(t1.get());
+		processTablesReadRecords(t1.get());
 		assertRecords(t1.get(),4);
-		processTables2(t2.get());
+		processTablesUpdateRecords(t2.get());
 		assertRecords(t1.get(),8);
-		processTables3(t3.get());
+		processTablesNullNkeyViolation(t3.get());
 		assertRecords(t1.get(),8);
-		processTables4(t1.get());
+		processTablesEmptyTable(t1.get());
 		assertRecords(t1.get(),8);
 	}
 

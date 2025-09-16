@@ -153,6 +153,21 @@ class FieldValue
 		m_fieldValue = (const char*)NULL;
 	}
 
+
+	template <typename INPUT_t>
+	static gak::STRING convertFieldType( const INPUT_t &val )
+	{
+		return val;
+	}
+	template <typename FIELD_t>
+	static FIELD_t parseFieldType( const gak::STRING &val )
+	{
+		return val;
+	}
+
+	// *******************************************************************************************************
+	// String fields
+	// *******************************************************************************************************
 	const gak::STRING &getStringValue() const
 	{
 		return m_fieldValue;
@@ -162,39 +177,77 @@ class FieldValue
 		backupValue();
 		m_fieldValue = value;
 	}
+
+	// *******************************************************************************************************
+	// Integer fields
+	// *******************************************************************************************************
+	template <>
+	static gak::STRING convertFieldType<long>( const long &val )
+	{
+		return gak::formatBinary(
+			gak::uint64(gak::int64(val) + std::numeric_limits<gak::int64>::max() + 1), 
+			16, 16 
+		);	
+	}
 	void setIntegerValue( long value )
 	{
 		backupValue();
-		m_fieldValue = gak::formatBinary(
-			gak::uint64(gak::int64(value) + std::numeric_limits<gak::int64>::max() + 1), 
-			16, 16 
-		);
+		m_fieldValue = convertFieldType(value);
+	}
+	template <>
+	static long parseFieldType<long>( const gak::STRING &val )
+	{
+		return long(val.getValueN<gak::uint64>(16) - std::numeric_limits<gak::int64>::max() - 1);
 	}
 	long getIntegerValue() const
 	{
-		return long(m_fieldValue.getValueN<gak::uint64>(16) - std::numeric_limits<gak::int64>::max() - 1);
+		return parseFieldType<long>( m_fieldValue );
+	}
+
+	// *******************************************************************************************************
+	// Double fields
+	// *******************************************************************************************************
+	template <>
+	static gak::STRING convertFieldType<double>( const double &val )
+	{
+		return gak::formatNumber( val );
 	}
 	void setDoubleValue( double value )
 	{
 		backupValue();
-		m_fieldValue = gak::formatNumber( value );
+		m_fieldValue = convertFieldType(value);
+	}
+	template <>
+	static double parseFieldType<double>( const gak::STRING &val )
+	{
+		return val.getValueN<double>();
 	}
 	double getDoubleValue() const
 	{
-		double	value;
+		return parseFieldType<double>( m_fieldValue );
+	}
 
-		value = m_fieldValue.getValueN<double>();
-
-		return value;
+	// *******************************************************************************************************
+	// Boolean fields
+	// *******************************************************************************************************
+	template <>
+	static gak::STRING convertFieldType<bool>( const bool &val )
+	{
+		return gak::STRING(val ? 'Y' : 'N');
 	}
 	void setBooleanValue( bool value )
 	{
 		backupValue();
-		m_fieldValue = value ? 'Y' : 'N';
+		m_fieldValue = convertFieldType(value);
+	}
+	template <>
+	static bool parseFieldType<bool>( const gak::STRING &val )
+	{
+		return val[0U] == 'Y';
 	}
 	bool getBooleanValue() const
 	{
-		return m_fieldValue[0U] == 'Y';
+		return parseFieldType<bool>( m_fieldValue );
 	}
 };
 
