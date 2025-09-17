@@ -396,13 +396,13 @@ void Table::firstRecord( const STRING &searchBuffer )
 		Index::firstRecord( searchBuffer );
 }
 
-void Table::nextRecord( const STRING &searchBuffer )
+void Table::nextRecord()
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::nextRecord" );
 
 	if( m_currentIndex )
 	{
-		m_currentIndex->nextRecord( searchBuffer );
+		m_currentIndex->nextRecord();
 		if( !m_currentIndex->eof() )
 		{
 			m_currentRecord.readRecord(
@@ -417,15 +417,15 @@ void Table::nextRecord( const STRING &searchBuffer )
 
 	}
 	else
-		Index::nextRecord( searchBuffer );
+		Index::nextRecord();
 }
 
-void Table::previousRecord( const STRING &searchBuffer )
+void Table::previousRecord()
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::previousRecord" );
 	if( m_currentIndex )
 	{
-		m_currentIndex->previousRecord( searchBuffer );
+		m_currentIndex->previousRecord();
 		if( !m_currentIndex->bof() )
 		{
 			m_currentRecord.readRecord(
@@ -440,7 +440,7 @@ void Table::previousRecord( const STRING &searchBuffer )
 
 	}
 	else
-		Index::previousRecord( searchBuffer );
+		Index::previousRecord();
 }
 
 void Table::lastRecord( const STRING &searchBuffer )

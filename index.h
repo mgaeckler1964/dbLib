@@ -133,14 +133,6 @@ class Index
 
 	void truncateFile();
 	void create();
-	bool bof() const
-	{
-		return m_currentRecord.bof();
-	}
-	bool eof() const
-	{
-		return m_currentRecord.eof();
-	}
 
 	size_t	getNumFields() const
 	{
@@ -173,21 +165,32 @@ class Index
 	}
 
 
+	/*
+	 * cursor loop
+	 */
 	void firstRecord( const gak::STRING &searchBuffer="" )
 	{
 		m_currentRecord.firstRecord( m_dataFileHandle, searchBuffer );
 	}
-	void nextRecord( const gak::STRING &searchBuffer="" )
+	void nextRecord()
 	{
-		m_currentRecord.nextRecord( m_dataFileHandle, searchBuffer );
+		m_currentRecord.nextRecord( m_dataFileHandle );
 	}
-	void previousRecord( const gak::STRING &searchBuffer="" )
+	void previousRecord()
 	{
-		m_currentRecord.prevRecord( m_dataFileHandle, searchBuffer );
+		m_currentRecord.prevRecord( m_dataFileHandle );
 	}
 	void lastRecord( const gak::STRING &searchBuffer="" )
 	{
 		m_currentRecord.lastRecord( m_dataFileHandle, searchBuffer );
+	}
+	bool bof() const
+	{
+		return m_currentRecord.bof();
+	}
+	bool eof() const
+	{
+		return m_currentRecord.eof();
 	}
 
 	FieldValue *getField( const gak::STRING &name );

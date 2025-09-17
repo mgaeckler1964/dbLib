@@ -216,7 +216,7 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 	for(
 		tab->firstRecord( searchPattern );
 		!tab->eof();
-		tab->nextRecord(searchPattern)
+		tab->nextRecord()
 	)
 	{
 		int uniqueInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
@@ -228,6 +228,30 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 		++count;
 	}
 	UT_ASSERT_EQUAL(count, 2);
+
+	searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER+1);
+	count = 0;
+	for(
+		tab->lastRecord( searchPattern );
+		!tab->bof();
+		tab->previousRecord()
+	)
+	{
+		int uniqueInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
+		if( count )
+		{
+			UT_ASSERT_NOT_EQUAL(lastInt, uniqueInt);
+		}
+		lastInt = uniqueInt;
+		++count;
+	}
+	UT_ASSERT_EQUAL(count, 2);
+
+	searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER+3);
+	tab->firstRecord( searchPattern );
+	UT_ASSERT_TRUE(tab->eof());
+	tab->lastRecord( searchPattern );
+	UT_ASSERT_TRUE(tab->bof());
 }
 
 void MydbUnitTest::processTablesUpdateRecords(dbLib::Table *tab)
@@ -346,6 +370,12 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 
 	const int numData = 800;
 
+	{
+		tt->firstRecord();
+		UT_ASSERT_TRUE(tt->eof());
+		tt->lastRecord();
+		UT_ASSERT_TRUE(tt->bof());
+	}
 	{
 		fillSimpleTable(tt.get(), numData, false);
 		int prevValue = 0;

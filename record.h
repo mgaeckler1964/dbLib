@@ -127,6 +127,7 @@ class Record
 	friend class Table;
 
 	private:
+	gak::STRING		m_searchBuffer;
 	RecordHeader	m_theHeader;
 	long			m_nodeId;
 	FieldValue		*m_values;
@@ -177,14 +178,6 @@ class Record
 
 	void getRecord( gak::STRING *theValues, bool primary, gak::STRING *theStringLengths );
 
-	bool bof( void ) const
-	{
-		return m_theRecMode == rmBof;
-	}
-	bool eof( void ) const
-	{
-		return m_theRecMode == rmEof;
-	}
 	void createRecord( const FieldDefinitions &definitions );
 	void setInsertMode( void );
 
@@ -204,10 +197,23 @@ class Record
 	void postRecord( DbFile *dataFileHandle );
 	void deleteRecord( DbFile *dataFileHandle, bool noMove=false );
 	void root( DbFile *dataFileHandle );
+
+	/*
+	 * cursor loop
+	 */
 	void firstRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
-	void nextRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
-	void prevRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
+	void nextRecord( DbFile *dataFileHandle );
+	void prevRecord( DbFile *dataFileHandle );
 	void lastRecord( DbFile *dataFileHandle, const gak::STRING &searchBuffer="" );
+	bool bof( void ) const
+	{
+		return m_theRecMode == rmBof;
+	}
+	bool eof( void ) const
+	{
+		return m_theRecMode == rmEof;
+	}
+
 	void backupValues( void );
 
 	gak::int64 getCurrentPosition() const

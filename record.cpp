@@ -681,6 +681,7 @@ void Record::root( DbFile *dataFileHandle )
 void Record::firstRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::firstRecord" );
+	m_searchBuffer = searchBuffer;
 	gak::int64 fileLength = dataFileHandle->toEnd()-TABLE_HEADER_SIZE;
 	if( fileLength<=0 )
 		m_theRecMode = rmEof;
@@ -701,20 +702,20 @@ void Record::firstRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 					STRING theValues;
 					getRecord( &theValues, false, NULL );
 					if( strncmp( theValues, searchBuffer, strlen( searchBuffer ) ) )
-						nextRecord( dataFileHandle, searchBuffer );
+						nextRecord( dataFileHandle );
 				}
 				break;
 			}
 			else
 			{
-				nextRecord( dataFileHandle, searchBuffer );
+				nextRecord( dataFileHandle );
 				break;
 			}
 		}
 	}
 }
 
-void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
+void Record::nextRecord( DbFile *dataFileHandle )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::nextRecord" );
 	gak::int64	oldPosition;
@@ -767,17 +768,17 @@ void Record::nextRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 	else
 	{
 		readRecord( dataFileHandle );
-		if( searchBuffer[0U] )
+		if( m_searchBuffer[0U] )
 		{
 			STRING theValues;
 			getRecord( &theValues, false, NULL );
-			if( strncmp( theValues, searchBuffer, strlen( searchBuffer ) ) )
-				nextRecord( dataFileHandle, searchBuffer );
+			if( strncmp( theValues, m_searchBuffer, strlen( m_searchBuffer ) ) )
+				nextRecord( dataFileHandle );			/// TODO avoid recursive call
 		}
 	}
 }
 
-void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
+void Record::prevRecord( DbFile *dataFileHandle )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::prevRecord" );
 	bool	found;
@@ -830,12 +831,12 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 	else
 	{
 		readRecord( dataFileHandle );
-		if( searchBuffer[0U] )
+		if( m_searchBuffer[0U] )
 		{
 			STRING theValues;
 			getRecord( &theValues, false, NULL );
-			if( strncmp( theValues, searchBuffer, strlen( searchBuffer ) ) )
-				prevRecord( dataFileHandle, searchBuffer );
+			if( strncmp( theValues, m_searchBuffer, strlen( m_searchBuffer ) ) )
+				prevRecord( dataFileHandle );	/// TODO avoid recursion
 		}
 	}
 }
@@ -843,6 +844,7 @@ void Record::prevRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 void Record::lastRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Record::lastRecord" );
+	m_searchBuffer = searchBuffer;
 	gak::int64 fileLength = dataFileHandle->toEnd()-TABLE_HEADER_SIZE;	// table header
 	if( !fileLength )
 		m_theRecMode = rmBof;
@@ -863,13 +865,13 @@ void Record::lastRecord( DbFile *dataFileHandle, const STRING &searchBuffer )
 					STRING theValues;
 					getRecord( &theValues, false, NULL );
 					if( strncmp( theValues, searchBuffer, strlen( searchBuffer ) ) )
-						prevRecord( dataFileHandle, searchBuffer );
+						prevRecord( dataFileHandle );
 				}
 				break;
 			}
 			else
 			{
-				prevRecord( dataFileHandle, searchBuffer );
+				prevRecord( dataFileHandle );
 				break;
 			}
 		}

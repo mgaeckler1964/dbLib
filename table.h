@@ -112,9 +112,12 @@ class Table : public Index
 	void postRecord();
 	void deleteRecord( bool noMove=false );
 
+	/*
+	 * cursor loop
+	 */
 	void firstRecord( const gak::STRING &searchBuffer="" );
-	void nextRecord( const gak::STRING &searchBuffer="" );
-	void previousRecord( const gak::STRING &searchBuffer="" );
+	void nextRecord();
+	void previousRecord();
 	void lastRecord( const gak::STRING &searchBuffer="" );
 
 	void createIndex( const gak::STRING &indexName );
