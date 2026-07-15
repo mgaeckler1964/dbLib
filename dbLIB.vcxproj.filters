@@ -35,6 +35,9 @@
     <ClCompile Include="table.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="query.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="database.h">
@@ -56,6 +59,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="query.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

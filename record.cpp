@@ -213,12 +213,12 @@ char *Record::readRecordBuffer(
 	else
 		throw DBmemoryException();
 
-	return recBuffer.prepareMove();
+	return recBuffer.release();
 }
 
 int Record::locateValue(
 	DbFile *dataFileHandle,
-	gak::int64 *posFound, RecordHeader *headerFound,
+	gak::int64 *posFound, RecordHeader *headerFound, bool *isDeleted,
 	const STRING &searchFor, bool primary
 )
 {
@@ -240,10 +240,12 @@ int Record::locateValue(
 		headerFound->address = newPosition;
 
 		{
-			gak::Buffer<char> tmpRecord = readRecordBuffer(
-				dataFileHandle,
-				primary ? headerFound->primaryLen : headerFound->bufferLen,
-				primary
+			gak::Buffer<char> tmpRecord(
+				true, readRecordBuffer(
+					dataFileHandle,
+					primary ? headerFound->primaryLen : headerFound->bufferLen,
+					primary
+				)
 			);
 			compareVal = strcmp( tmpRecord, searchFor );
 		}
@@ -256,14 +258,14 @@ int Record::locateValue(
 			if( higherRecordPtr )
 			{
 				*posFound = higherRecordPtr;
-				compareVal = locateValue( dataFileHandle, posFound, headerFound, searchFor, primary );
+				compareVal = locateValue( dataFileHandle, posFound, headerFound, isDeleted, searchFor, primary );
 				if( !compareVal && *posFound )
 					found = true;				// end search, because we have found the matching record
 			}
 			if( !found && lowerRecordPtr )
 			{
 				*posFound = lowerRecordPtr;
-				compareVal = locateValue( dataFileHandle, posFound, headerFound, searchFor, primary );
+				compareVal = locateValue( dataFileHandle, posFound, headerFound, isDeleted, searchFor, primary );
 				found = true;					// end search in all cases
 			}
 		}
@@ -366,8 +368,8 @@ void Record::readRecord( DbFile *dataFileHandle )
 
 	size_t	lenData;
 
-	gak::Buffer<char>recBuffer( readRecordBuffer( dataFileHandle, m_theHeader.bufferLen, true ) );
-	gak::Buffer<char>lengthBuffer( readRecordBuffer( dataFileHandle, m_theHeader.stringLengths, true ) );
+	gak::Buffer<char>recBuffer( true, readRecordBuffer( dataFileHandle, m_theHeader.bufferLen, true ) );
+	gak::Buffer<char>lengthBuffer( true, readRecordBuffer( dataFileHandle, m_theHeader.stringLengths, true ) );
 
 	cpLength = lengthBuffer;
 	cpData = recBuffer;
@@ -561,8 +563,9 @@ void Record::postRecord( DbFile *dataFileHandle )
 
 	if( fileLength>0 )
 	{
+		bool isDeleted;
 		curPos = TABLE_HEADER_SIZE;
-		compareVal = locateValue( dataFileHandle, &curPos, &curHeader, theValues, false );
+		compareVal = locateValue( dataFileHandle, &curPos, &curHeader, &isDeleted, theValues, false );
 	}
 
 	// now we can create the new record

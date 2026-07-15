@@ -44,6 +44,8 @@
 #include <gak/array.h>
 #include <gak/xml.h>
 
+#include "database.h"
+#include "query.h"
 #include "db_file_io.h"
 #include "record.h"
 
@@ -76,6 +78,30 @@ namespace dbLib
 static const char	TABLE_HEADER[] = "0000000000000000";
 static const size_t	TABLE_HEADER_SIZE = sizeof(TABLE_HEADER)-1;
 
+// XML Constants
+
+const char TABLE_DEFINITION[] = "TABLE_DEFINITION";
+const char FIELD_DEFS[] = "FIELD_DEFS";
+
+const char NAME[] = "NAME";
+const char FIELD[] = "FIELD";
+const char TYPE[] = "TYPE";
+const char PRIMARY[] = "PRIMARY";
+const char NOT_NULL[] = "NOT_NULL";
+const char REFERENCE[] = "REFERENCE";
+const char REFS_BY[] = "REFS_BY";
+const char REF[] = "REF";
+const char spec[] = "spec";
+
+const char INDICES[] = "INDICES";
+const char INDEX[] = "INDEX";
+
+
+
+
+
+
+
 // --------------------------------------------------------------------- //
 // ----- macros -------------------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -88,14 +114,15 @@ static const size_t	TABLE_HEADER_SIZE = sizeof(TABLE_HEADER)-1;
 // ----- class definitions --------------------------------------------- //
 // --------------------------------------------------------------------- //
 
-class Index
+class Index : public Query
 {
 	bool			m_dropAfterClose;
 	gak::STRING		m_pathName;
 	gak::STRING		m_dataFile;
 
-
 	protected:
+	Database					*m_database;
+	const gak::STRING			m_tableName;
 	DbFile						*m_dataFileHandle;
 	Record						m_currentRecord;
 	FieldDefinitions			m_fieldDefinitions;
@@ -105,18 +132,21 @@ class Index
 		assert(fieldDefIdx < m_fieldDefinitions.size());
 		return m_fieldDefinitions[fieldDefIdx];
 	}
+	FieldDefinition &getFieldDef( size_t fieldDefIdx )
+	{
+		assert(fieldDefIdx < m_fieldDefinitions.size());
+		return m_fieldDefinitions[fieldDefIdx];
+	}
 	size_t	findField( const char *fieldName );
 
 	public:
-	Index( const gak::STRING &pathName )
+	Index( Database *database, const gak::STRING &tableName, const gak::STRING &pathName ) : m_tableName(tableName)
 	{
-		m_pathName = pathName;
-
-		m_dataFileHandle = nullptr;
 		m_dropAfterClose = false;
-
-		m_dataFile = pathName;
+		m_pathName = m_dataFile = pathName;
 		m_dataFile += ".data";
+
+		m_database = database;
 		m_dataFileHandle = openTableFile( m_dataFile );
 	}
 	~Index()
@@ -201,13 +231,13 @@ class Index
 		return m_pathName;
 	}
 
-	const gak::STRING getIndexPathName( const gak::STRING &indexName )
+	const gak::STRING getIndexPathName( const gak::STRING &indexName ) const
 	{
 		return getPathName() + '.' + indexName;
 	}
 
 	int locateValue(
-		gak::int64 *posFound,
+		gak::int64 *posFound, bool *isDeleted,
 		const gak::STRING &searchFor, bool primary
 	)
 	{
@@ -218,7 +248,7 @@ class Index
 			*posFound = TABLE_HEADER_SIZE;
 			return Record::locateValue(
 				m_dataFileHandle,
-				posFound, &headerFound,
+				posFound, &headerFound, isDeleted,
 				searchFor, primary
 			);
 		}

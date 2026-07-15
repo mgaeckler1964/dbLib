@@ -91,6 +91,8 @@ class DBexception : public std::exception
 		INDEX_EXISTS, INDEX_NOT_EXISTS,
 		FIELD_EXISTS, FIELD_NOT_EXISTS,
 		KEY_VIOLATION, NULL_VALUE,
+		REF_MASTER_NOT_FOUND,
+		REF_DETAIL_FOUND,
 
 		// FS Errors
 		MKDIR_FAILED, OPEN_FAILED,
@@ -350,7 +352,47 @@ class DbExist : public DBexception
 	}
 };
 
+class DBrefError : public DBexception
+{
+	static gak::STRING getObjName( const gak::STRING &detailTable, const gak::STRING &detailField, const gak::STRING &refValue, const gak::STRING &masterTable, const gak::STRING &masterField  )
+	{
+		return gak::STRING("detailTable=")+detailTable +
+			", detailField=" +detailField + 
+			", refValue=" + refValue + 
+			", masterTable=" + masterTable + 
+			", masterFiled=" + masterField; 
+	}
+	protected:
+	DBrefError( DbErrorCode errCode, const gak::STRING &detailTable, const gak::STRING &detailField, const gak::STRING &refValue, const gak::STRING &masterTable, const gak::STRING &masterField  )
+		: DBexception( errCode, getObjName(detailTable, detailField, refValue, masterTable, masterField ) )
+	{}
+};
 
+class DBrefMasterNotFound : public DBrefError
+{
+	virtual const char *getErrText() const
+	{
+		return "%err%: Master not found %obj%";
+	}
+	public:
+	DBrefMasterNotFound( const gak::STRING &detailTable, const gak::STRING &detailField, const gak::STRING &refValue, const gak::STRING &masterTable, const gak::STRING &masterField  )
+		: DBrefError( REF_MASTER_NOT_FOUND, detailTable, detailField, refValue, masterTable, masterField )
+	{}
+
+};
+
+class DBrefDetailFound : public DBrefError
+{
+	virtual const char *getErrText() const
+	{
+		return "%err%: Detail found %obj%";
+	}
+	public:
+	DBrefDetailFound( const gak::STRING &detailTable, const gak::STRING &detailField, const gak::STRING &refValue, const gak::STRING &masterTable, const gak::STRING &masterField  )
+		: DBrefError( REF_DETAIL_FOUND, detailTable, detailField, refValue, masterTable, masterField )
+	{}
+
+};
 
 // --------------------------------------------------------------------- //
 // ----- class definitions --------------------------------------------- //

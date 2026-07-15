@@ -55,6 +55,9 @@ const long INT_FILTER = 10;
 
 const char simple[] = "simple";
 const char indexTable[] = "indexTable";
+const char masterTable[] = "masterTable";
+const char detailTable[] = "detailTable";
+
 const char MY_ONLY_FIELD[] = "MY_ONLY_FIELD";
 
 const char PRIM_INDEX_FIELD[] = "PRIM_INDEX_FIELD";
@@ -76,6 +79,7 @@ class MydbUnitTest : public gak::UnitTest
 	void fillSimpleTable(dbLib::Table *tab, int count, bool negative);
 
 	void createIndexTable(dbLib::Database *db);
+	void createReferenceTables(dbLib::Database *db);
 
 	void createTable(dbLib::Database *db);
 	void fillTable(dbLib::Table *tab);
@@ -89,6 +93,7 @@ class MydbUnitTest : public gak::UnitTest
 
 	void simpleTest(dbLib::Database *db);
 	void indexTest(dbLib::Database *db);
+	void referenceTest(dbLib::Database *db);
 
 	virtual void PerformTest();
 };
@@ -110,7 +115,7 @@ void MydbUnitTest::createTable(dbLib::Database *db)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::createTable" );
 
-	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( test1 ) );
+	std::unique_ptr<dbLib::Table> 	 t1( db->createTable( test1 ) );
 
 	t1->addField( MY_FIRST_FIELD, dbLib::ftString, true, true );	// this is my primary index
 	t1->addField( MY_SECOND_FIELD, dbLib::ftString );
@@ -336,7 +341,7 @@ void MydbUnitTest::createSimpleTable(dbLib::Database *db)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::createSimpleTable" );
 
-	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( simple ) );
+	std::unique_ptr<dbLib::Table> 	 t1( db->createTable( simple ) );
 
 	t1->addField( MY_ONLY_FIELD, dbLib::ftInteger, true, true );	// this is my primary index
 
@@ -366,11 +371,25 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 
 	createSimpleTable(db);
 
-	std::auto_ptr<dbLib::Table> 	 tt( db->openTable( simple ) );
+	std::unique_ptr<dbLib::Table> 	 tt( db->openTable( simple ) );
 
 	const int numData = 800;
 
 	{
+		tt->firstRecord();
+		UT_ASSERT_TRUE(tt->eof());
+		tt->lastRecord();
+		UT_ASSERT_TRUE(tt->bof());
+	}
+	fillSimpleTable(tt.get(), 1, false);
+	{
+		tt->firstRecord();
+		UT_ASSERT_FALSE(tt->eof());
+		tt->lastRecord();
+		UT_ASSERT_FALSE(tt->bof());
+
+		tt->deleteRecord();
+
 		tt->firstRecord();
 		UT_ASSERT_TRUE(tt->eof());
 		tt->lastRecord();
@@ -439,7 +458,7 @@ void MydbUnitTest::createIndexTable(dbLib::Database *db)
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::createIndexTable" );
 
-	std::auto_ptr<dbLib::Table> 	 t1( db->createTable( indexTable ) );
+	std::unique_ptr<dbLib::Table> 	 t1( db->createTable( indexTable ) );
 
 	t1->addField( PRIM_INDEX_FIELD, dbLib::ftInteger, true, true );
 	t1->addField( SEC_INDEX_FIELD, dbLib::ftInteger );
@@ -476,7 +495,7 @@ void MydbUnitTest::indexTest(dbLib::Database *db)
 
 	createIndexTable(db);
 
-	std::auto_ptr<dbLib::Table> 	 tt( db->openTable( indexTable ) );
+	std::unique_ptr<dbLib::Table> 	 tt( db->openTable( indexTable ) );
 
 	tt->insertRecord();
 	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 0 );
@@ -540,21 +559,117 @@ void MydbUnitTest::indexTest(dbLib::Database *db)
 }
 
 // ******************************************************************************************************************************************
+// the reference test
+// ******************************************************************************************************************************************
+void MydbUnitTest::createReferenceTables(dbLib::Database *db)
+{
+	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::createReferenceTables" );
+
+	std::unique_ptr<dbLib::Table> 	 master( db->createTable( masterTable ) );
+	master->addField( PRIM_INDEX_FIELD, dbLib::ftInteger, true, true );
+	master->addField( SEC_INDEX_FIELD, dbLib::ftInteger, false, true );
+
+	std::unique_ptr<dbLib::Table> 	 detail( db->createTable( detailTable ) );
+	detail->addField( PRIM_INDEX_FIELD, dbLib::ftInteger, true, true );
+	detail->addField( SEC_INDEX_FIELD, dbLib::ftInteger, false, true );
+	STRING ref = STRING(masterTable) + '.' + SEC_INDEX_FIELD;
+	detail->addField( masterTable, dbLib::ftInteger, false, true, ref );
+}
+
+void MydbUnitTest::referenceTest(dbLib::Database *db)
+{
+	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::referenceTest" );
+
+	createReferenceTables(db);
+
+	{
+		std::unique_ptr<dbLib::Table> 	 master( db->openTable( masterTable ) );
+		std::unique_ptr<dbLib::Table> 	 detail( db->openTable( detailTable ) );
+
+		master->insertRecord();
+		master->getField(PRIM_INDEX_FIELD)->setIntegerValue(1);
+		master->getField(SEC_INDEX_FIELD)->setIntegerValue(1);
+		master->postRecord();
+
+		detail->insertRecord();
+		detail->getField(PRIM_INDEX_FIELD)->setIntegerValue(2);
+		detail->getField(SEC_INDEX_FIELD)->setIntegerValue(2);
+		detail->getField(masterTable)->setIntegerValue(1);
+		detail->postRecord();
+
+		detail->insertRecord();
+		detail->getField(PRIM_INDEX_FIELD)->setIntegerValue(3);
+		detail->getField(SEC_INDEX_FIELD)->setIntegerValue(3);
+		detail->getField(masterTable)->setIntegerValue(4);
+		UT_ASSERT_EXCEPTION(
+			detail->postRecord(),
+			dbLib::DBrefMasterNotFound
+		);
+
+		UT_ASSERT_EXCEPTION(
+			master->deleteRecord(),
+			dbLib::DBrefDetailFound
+		);
+	}
+
+	{
+		std::unique_ptr<dbLib::Table> 	 detail( db->openTable( detailTable ) );
+
+		while(1)
+		{
+			detail->lastRecord();
+			if( detail->bof() )
+				break;
+			detail->deleteRecord();
+		}
+	}
+	{
+		std::unique_ptr<dbLib::Table> 	 master( db->openTable( masterTable ) );
+		while(1)
+		{
+			master->lastRecord();
+			if( master->bof() )
+				break;
+			master->deleteRecord();
+		}
+	}
+}
+
+// ******************************************************************************************************************************************
 
 void MydbUnitTest::PerformTest()
 {
 	doEnterFunctionEx( gakLogging::llInfo, "MydbUnitTest::PerformTest" );
-	std::auto_ptr<dbLib::Database>	db( dbLib::Database::createDB( "", "c:\\temp\\gak\\", "gak", "" ) );
+	std::unique_ptr<dbLib::Database>	db( dbLib::Database::createDB( "", "c:\\temp\\gak\\", "gak", "" ) );
+
+	try
+	{
+		db->dropTable(test1);
+		db->dropTable(indexTable);
+		db->dropTable(detailTable);
+		db->dropTable(masterTable);
+	}
+	catch( ... )
+	{
+	}
+	try
+	{
+		db->dropTable(simple);
+	}
+	catch( ... )
+	{
+	}
 
 	simpleTest(db.get());
 	indexTest(db.get());
+	referenceTest(db.get());
 
 	createTable(db.get());
 
 	{
-		std::auto_ptr<dbLib::Table> 	 t1( db->openTable( test1 ) );
-		std::auto_ptr<dbLib::Table> 	 t2( db->openTable( test1 ) );
-		std::auto_ptr<dbLib::Table> 	 t3( db->openTable( test1 ) );
+		std::unique_ptr<dbLib::Table> 	 t1( db->openTable( test1 ) );
+		std::unique_ptr<dbLib::Table> 	 t2( db->openTable( test1 ) );
+		std::unique_ptr<dbLib::Table> 	 t3( db->openTable( test1 ) );
 
 		fillTable(t3.get());
 		assertRecords(t1.get(),4);
@@ -568,11 +683,8 @@ void MydbUnitTest::PerformTest()
 		assertRecords(t1.get(),8);
 	}
 
-	db->dropTable(test1);
 	db->dropTable(simple);
-	db->dropTable(indexTable);
-
-	UT_ASSERT_EXCEPTION(db->openTable( test1 ), dbLib::DBtableNotFound);
+	UT_ASSERT_EXCEPTION(db->openTable( simple ), dbLib::DBtableNotFound);
 }
 
 static MydbUnitTest mydbUnitTest;

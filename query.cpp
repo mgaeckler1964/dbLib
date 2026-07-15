@@ -1,12 +1,12 @@
 /*
-		Project:		dbLIB
-		Module:			index.cpp
-		Description:	The definitions for one table index
+		Project:		dbLib
+		Module:			query.cpp
+		Description:	Base for a database query
 		Author:			Martin Gäckler
 		Address:		Hofmannsthalweg 14, A-4030 Linz
 		Web:			https://www.gaeckler.at/
 
-		Copyright:		(c) 2007-2025 Martin Gäckler
+		Copyright:		(c) 1988-2025 Martin Gäckler
 
 		This program is free software: you can redistribute it and/or modify  
 		it under the terms of the GNU General Public License as published by  
@@ -37,8 +37,6 @@
 // ----- includes ------------------------------------------------------ //
 // --------------------------------------------------------------------- //
 
-#include "table.h"
-
 // --------------------------------------------------------------------- //
 // ----- imported datas ------------------------------------------------ //
 // --------------------------------------------------------------------- //
@@ -49,13 +47,9 @@
 
 #ifdef __BORLANDC__
 #	pragma option -RT-
-#	ifdef __WIN32__
-#		pragma option -a4
-#		pragma option -pc
-#	else
-#		pragma option -po
-#		pragma option -a2
-#	endif
+#	pragma option -b
+#	pragma option -a4
+#	pragma option -pc
 #endif
 
 namespace dbLib
@@ -73,10 +67,6 @@ namespace dbLib
 // ----- type definitions ---------------------------------------------- //
 // --------------------------------------------------------------------- //
 
-using gak::STRING;
-using gak::xml::Element;
-using gak::xml::Any;
-
 // --------------------------------------------------------------------- //
 // ----- class definitions --------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -92,8 +82,6 @@ using gak::xml::Any;
 // --------------------------------------------------------------------- //
 // ----- class static data --------------------------------------------- //
 // --------------------------------------------------------------------- //
-
-const size_t Index::no_index = size_t(-1);
 
 // --------------------------------------------------------------------- //
 // ----- prototypes ---------------------------------------------------- //
@@ -119,24 +107,6 @@ const size_t Index::no_index = size_t(-1);
 // ----- class privates ------------------------------------------------ //
 // --------------------------------------------------------------------- //
 
-size_t Index::findField( const char *fieldName )
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::findField" );
-
-	size_t			fieldIdx = no_index;
-
-	for( size_t i=0; i<m_fieldDefinitions.size(); ++i )
-	{
-		if( !strcmpi( fieldName, m_fieldDefinitions[i].name ) )
-		{
-			fieldIdx = i;
-			break;
-		}
-	}
-
-	return fieldIdx;
-}
-
 // --------------------------------------------------------------------- //
 // ----- class protected ----------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -144,171 +114,10 @@ size_t Index::findField( const char *fieldName )
 // --------------------------------------------------------------------- //
 // ----- class virtuals ------------------------------------------------ //
 // --------------------------------------------------------------------- //
-
+   
 // --------------------------------------------------------------------- //
 // ----- class publics ------------------------------------------------- //
 // --------------------------------------------------------------------- //
-
-void Index::open( Element *theXmlFieldDefs )
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::open" );
-
-	int					tmp;
-	STRING				value;
-	size_t				defIdx = 0;
-
-	m_fieldDefinitions.setMinSize(theXmlFieldDefs->getNumObjects());
-
-	for( size_t i=0; i<theXmlFieldDefs->getNumObjects(); i++ )
-	{
-		Any *theField = static_cast<Any*>(theXmlFieldDefs->getElement( i ));
-
-		if( theField && theField->getTag() == FIELD )
-		{
-			FieldDefinition		&fieldDef = m_fieldDefinitions[defIdx++];
-
-			fieldDef.name = theField->getAttribute( NAME );
-			value = theField->getAttribute( TYPE );
-			tmp = value.getValueN<int>();
-			fieldDef.type = (fType)tmp;
-
-			value = theField->getAttribute( PRIMARY );
-			fieldDef.primary = (value[0U] == 'Y');
-
-			value = theField->getAttribute( NOT_NULL );
-			fieldDef.notNull = (value[0U] == 'Y');
-
-			fieldDef.ref = theField->getAttribute( REFERENCE );
-
-			Any *refsBY = static_cast<Any*>(theField->getElement(REFS_BY));
-			if( refsBY )
-			{
-				for( size_t i=0; i<refsBY->getNumObjects(); i++ )
-				{
-					Any *theREF = static_cast<Any*>(refsBY->getElement( i ));
-
-					if( theREF && theREF->getTag() == REF )
-					{
-						STRING refBy = theREF->getAttribute(spec);
-						FieldSpec	newSpec(refBy);
-						if( newSpec )
-						{
-							fieldDef.refBy.createElement() = newSpec;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	m_currentRecord.createRecord( m_fieldDefinitions );
-
-	firstRecord();
-}
-
-void Index::writeXmlDefinition( Element *theXmlFieldDefs ) const
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::writeXmlDefinition" );
-
-	for( size_t i=0; i<m_fieldDefinitions.size(); ++i )
-	{
-		const FieldDefinition &fieldDef = m_fieldDefinitions[i];
-
-		Any	*theField = static_cast<Any*>(theXmlFieldDefs->addObject( new Any( FIELD ) ));
-
-		theField->setStringAttribute( NAME, fieldDef.name );
-		theField->setIntegerAttribute( TYPE, (int)fieldDef.type );
-		theField->setStringAttribute( PRIMARY, fieldDef.primary ? "Y" : "N" );
-		theField->setStringAttribute( NOT_NULL, fieldDef.notNull ? "Y" : "N" );
-		theField->setStringAttribute( REFERENCE, gak::STRING(fieldDef.ref) );
-
-		Any	*theRefByList = static_cast<Any*>(theField->addObject( new Any( REFS_BY ) ));
-		for( size_t j=0; j<fieldDef.refBy.size(); ++j )
-		{
-			const FieldSpec &ref = fieldDef.refBy[j];
-			Any	*theRef = static_cast<Any*>(theRefByList->addObject( new Any( REF ) ));
-			theRef->setStringAttribute( spec, ref ); 
-		}
-	}
-}
-
-void Index::truncateFile()
-{
-	closeTableFile( m_dataFileHandle );
-	strRemove( m_dataFile );
-	m_dataFileHandle = openTableFile( m_dataFile );
-	create();
-}
-
-void Index::create()
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::create" );
-
-	m_dataFileHandle->toStart();
-	m_dataFileHandle->write( TABLE_HEADER, TABLE_HEADER_SIZE );
-}
-
-void Index::addField(
-	const STRING &name, fType type,
-	bool primary,
-	bool notNulls,
-	const STRING &reference
-)
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::addField" );
-
-	size_t	fieldIdx = findField( name );
-	if( fieldIdx != no_index )
-	{
-		throw DBfieldExist( name );
-	}
-
-	FieldDefinition	&newDef = m_fieldDefinitions.createElement();
-	newDef.name = name;
-	newDef.type = type;
-	newDef.primary = primary;
-	newDef.notNull = notNulls;
-	newDef.ref = reference;
-
-	m_currentRecord.createRecord( m_fieldDefinitions );
-}
-
-FieldValue *Index::getField( const STRING &name )
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::getField( const STRING &name )" );
-
-	size_t	fieldIdx = findField( name );
-
-	if( fieldIdx == no_index )
-	{
-		throw DBfieldNotFound( name );
-	}
-
-	return m_currentRecord.getFieldValue( fieldIdx );
-}
-
-FieldValue *Index::getField( size_t fieldIdx )
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::getField( size_t fieldIdx )" );
-
-	if( fieldIdx >= m_fieldDefinitions.size() )
-	{
-		STRING	field;
-
-		field += gak::formatNumber(fieldIdx);
-		throw DBfieldNotFound( field );
-	}
-
-	return m_currentRecord.getFieldValue( fieldIdx );
-}
-
-gak::int64 Index::getNumRecords()
-{
-	doEnterFunctionEx( gakLogging::llDetail, "Index::getNumRecords" );
-
-	root();
-	return m_currentRecord.getHeader().numRecords;
-}
 
 // --------------------------------------------------------------------- //
 // ----- entry points -------------------------------------------------- //
@@ -318,7 +127,7 @@ gak::int64 Index::getNumRecords()
 
 #ifdef __BORLANDC__
 #	pragma option -RT.
+#	pragma option -b.
 #	pragma option -a.
 #	pragma option -p.
 #endif
-

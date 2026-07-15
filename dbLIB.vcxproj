@@ -33,6 +33,7 @@
     <ClCompile Include="db_file_io.cpp" />
     <ClCompile Include="fieldvalue.cpp" />
     <ClCompile Include="index.cpp" />
+    <ClCompile Include="query.cpp" />
     <ClCompile Include="record.cpp" />
     <ClCompile Include="table.cpp" />
   </ItemGroup>
@@ -42,6 +43,7 @@
     <ClInclude Include="db_file_io.h" />
     <ClInclude Include="fieldvalue.h" />
     <ClInclude Include="index.h" />
+    <ClInclude Include="query.h" />
     <ClInclude Include="record.h" />
     <ClInclude Include="table.h" />
   </ItemGroup>

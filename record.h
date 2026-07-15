@@ -117,6 +117,21 @@ struct RecordHeader
 
 };
 
+inline bool IsDeleted( const RecordHeader &header )
+{
+	return header.status & REC_DELETED;
+}
+
+inline void SetDeleted( RecordHeader *header )
+{
+	header->status |= REC_DELETED;
+}
+
+inline void ClrDeleted( RecordHeader *header )
+{
+	header->status &= ~REC_DELETED;
+}
+
 // --------------------------------------------------------------------- //
 // ----- class definitions --------------------------------------------- //
 // --------------------------------------------------------------------- //
@@ -172,7 +187,7 @@ class Record
 	);
 	static int locateValue(
 		DbFile *dataFileHandle,
-		gak::int64 *posFound, RecordHeader *headerFound,
+		gak::int64 *posFound, RecordHeader *headerFound, bool *isDeleted,
 		const gak::STRING &searchFor, bool primarySearch
 	);
 
@@ -186,10 +201,13 @@ class Record
 		return m_values+fieldIdx;
 	}
 	void readRecord( DbFile *dataFileHandle );
-	void readRecord( DbFile *dataFileHandle, gak::int64 currentPosition )
+	bool readRecord( DbFile *dataFileHandle, gak::int64 currentPosition )
 	{
 		loadRecordHeader( currentPosition, dataFileHandle, &m_theHeader );
+		if( IsDeleted(m_theHeader) )
+			return true;
 		readRecord( dataFileHandle );
+		return false;
 	}
 
 	gak::int64 rebalance( DbFile *dataFileHandle, gak::int64 curPos, RecordHeader &curHeader, gak::int64 prevPos, RecordHeader &prevHeader, bool cur2Small, bool prev2Small );
@@ -252,22 +270,6 @@ class Record
 // --------------------------------------------------------------------- //
 // ----- class inlines ------------------------------------------------- //
 // --------------------------------------------------------------------- //
-
-inline bool IsDeleted( const RecordHeader &header )
-{
-	return header.status & REC_DELETED;
-}
-
-inline void SetDeleted( RecordHeader *header )
-{
-	header->status |= REC_DELETED;
-}
-
-inline void ClrDeleted( RecordHeader *header )
-{
-	header->status &= ~REC_DELETED;
-}
-
 
 // --------------------------------------------------------------------- //
 // ----- class constructors/destructors -------------------------------- //

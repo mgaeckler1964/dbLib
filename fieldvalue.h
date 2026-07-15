@@ -46,6 +46,7 @@
 #include <gak/fmtNumber.h>
 #include <gak/numericString.h>
 #include <gak/types.h>
+#include <gak/array.h>
 
 // --------------------------------------------------------------------- //
 // ----- imported datas ------------------------------------------------ //
@@ -86,13 +87,55 @@ enum fType
 	ftBoolean, ftInteger, ftNumber, ftDate, ftString, ftBlob
 };
 
+struct FieldSpec
+{
+	gak::STRING	table, fieldName;
+
+	FieldSpec( const gak::STRING &spec="" )
+	{
+		gak::ArrayOfStrings	elements;
+
+		elements.createElements( spec, "." );
+		if( elements.size() >= 1 ) 
+		{
+			table = elements[0];
+		}
+		if( elements.size() >= 2 ) 
+		{
+			fieldName = elements[1];
+		}
+	}
+	bool good() const
+	{
+		return !table.isEmpty();
+	}
+	bool bad() const
+	{
+		return table.isEmpty();
+	}
+	operator bool () const
+	{
+		return good();
+	}
+	operator gak::STRING () const
+	{
+		if( bad() )
+			return "";
+		else if( fieldName.isEmpty() )
+			return table;
+		return table + '.' + fieldName;
+	}
+};
+typedef gak::Array<FieldSpec>	FieldSpecs;
+
 struct FieldDefinition
 {
 	gak::STRING	name;
 	fType		type;
 	bool		primary;
 	bool		notNull;
-	gak::STRING	reference;
+	FieldSpec	ref;
+	FieldSpecs	refBy;
 };
 
 typedef gak::Array<FieldDefinition> FieldDefinitions;

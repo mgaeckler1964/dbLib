@@ -138,21 +138,21 @@ void Table::writeDefinition() const
 	Any		*theXmlIndex;
 	STRING	myPath = getPathName();
 
-	std::auto_ptr<Any> theTableDefinition(new Any( "TABLE_DEFINITION" ));
+	std::unique_ptr<Any> theTableDefinition(new Any( TABLE_DEFINITION ));
 
-	Any		*theXmlFieldDefs = static_cast<Any*>(theTableDefinition->addObject(new Any("FIELD_DEFS")));
-	Any		*theXmlIndexDefs = static_cast<Any*>(theTableDefinition->addObject(new Any("INDICES")));
+	Any		*theXmlFieldDefs = static_cast<Any*>(theTableDefinition->addObject(new Any(FIELD_DEFS)));
+	Any		*theXmlIndexDefs = static_cast<Any*>(theTableDefinition->addObject(new Any(INDICES)));
 
 	writeXmlDefinition( theXmlFieldDefs );
 
 	for( size_t i=0; i<m_indices.size(); i++ )
 	{
-		theXmlIndex = static_cast<Any*>(theXmlIndexDefs->addObject(new Any("INDEX")));
+		theXmlIndex = static_cast<Any*>(theXmlIndexDefs->addObject(new Any(INDEX)));
 
 		theIndex = m_indices[i];
 		indexPath = theIndex->getPathName();
 		indexName = indexPath.rightString( strlen( indexPath ) - strlen( myPath ) -1 );
-		theXmlIndex->setStringAttribute( "NAME", indexName );
+		theXmlIndex->setStringAttribute( NAME, indexName );
 		theIndex->writeXmlDefinition( theXmlIndex );
 	}
 	STRING	xmlCode = theTableDefinition->generateDoc();
@@ -176,6 +176,13 @@ Index *Table::findIndexFromPath( const STRING &indexPath ) const
 	return NULL;
 }
 
+Index *Table::findIndexFromName( const STRING &indexName ) const
+{
+	STRING	indexPath = getIndexPathName(indexName);
+
+	return findIndexFromPath( indexPath );
+}
+
 void Table::checkKeyViolation(Index *theIndex)
 {
 	STRING		key;
@@ -197,9 +204,10 @@ void Table::checkKeyViolation(Index *theIndex)
 	if( key[0U] )
 	{
 		gak::int64 posFound;
+		bool isDeleted;
 		int compareVal = theIndex->locateValue(
 			&posFound,
-			key, true
+			&isDeleted, key, true
 		);
 		if( !compareVal && posFound )
 		{
@@ -249,31 +257,54 @@ void Table::open()
 
 	Parser   theParser( m_definitionFile );
 
-	std::auto_ptr<Document> theDefinitionDoc( theParser.readFile(false) );	/// TODO check boolean
+	std::unique_ptr<Document> theDefinitionDoc( theParser.readFile(false) );	/// TODO check boolean
 
-	Element *theTableDefinition = theDefinitionDoc->getElement( "TABLE_DEFINITION" );
+	Element *theTableDefinition = theDefinitionDoc->getElement( TABLE_DEFINITION );
 	if( theTableDefinition )
 	{
-		Element *theXmlFieldDefs = theTableDefinition->getElement( "FIELD_DEFS" );
+		Element *theXmlFieldDefs = theTableDefinition->getElement( FIELD_DEFS );
 		if( theXmlFieldDefs )
 			Index::open( theXmlFieldDefs );
 
-		Element *theXmlIndexDefs = theTableDefinition->getElement( "INDICES" );
+		Element *theXmlIndexDefs = theTableDefinition->getElement( INDICES );
 
 		for( size_t i=0; i<theXmlIndexDefs->getNumObjects(); i++ )
 		{
 			Element		*theXmlIndex = theXmlIndexDefs->getElement( i );
-			if( theXmlIndex && theXmlIndex->getTag() == "INDEX" )
+			if( theXmlIndex && theXmlIndex->getTag() == INDEX )
 			{
-				STRING	indexPath = getIndexPathName(theXmlIndex->getAttribute( "NAME" ));
+				STRING	indexName = theXmlIndex->getAttribute( NAME );
+				STRING	indexPath = getIndexPathName(indexName);
 
-				Index	*newIndex = new Index( indexPath );
+				Index	*newIndex = new Index( m_database, indexName, indexPath );
 				newIndex->open( theXmlIndex );
 				m_indices.addElement( newIndex );
 			}
 		}
 
 	}
+}
+
+void Table::addRefference(const STRING &fromTable, const STRING &fromField, const STRING &toField)
+{
+	/// TODO allow empty fieldname and using primary index
+	size_t fieldIdx = findField( toField );
+	if( no_index == fieldIdx )
+	{
+		throw DBfieldNotFound( toField );
+	}
+	FieldDefinition &fieldDef = getFieldDef( fieldIdx );
+	FieldSpec &ref = fieldDef.refBy.createElement();
+	ref.table = fromTable;
+	ref.fieldName = fromField;
+
+	if( !findIndexFromName( toField ) )
+	{
+		createIndex( toField );
+		addFieldToIndex( toField, toField, true, true );
+	}
+
+	writeDefinition();
 }
 
 void Table::addField(
@@ -284,14 +315,56 @@ void Table::addField(
 )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::addField" );
+
 	Index::addField( name, type, primary, notNulls, reference );
+	FieldSpec ref( reference );
+	if( ref.good() )
+	{
+		std::unique_ptr<Table> refTable( m_database->openTable(ref.table) );
+		refTable->addRefference(m_tableName, name, ref.fieldName);
+		createIndex(name);
+		addFieldToIndex(name,name,false,true);
+	}
 
 	writeDefinition();
+}
+
+void Table::checkReferences4Post()
+{
+	doEnterFunctionEx( gakLogging::llDetail, "Table::checkReferences4Post" );
+	size_t idx = 0;
+	for(
+		FieldDefinitions::const_iterator it = m_fieldDefinitions.cbegin(), endIT = m_fieldDefinitions.cend();
+		it != endIT;
+		++it, ++idx
+	)
+	{
+		const FieldDefinition &fDef = *it;
+		FieldSpec ref = fDef.ref;
+		if( ref.good() )
+		{
+			std::unique_ptr<Table>	tt( m_database->openTable(ref.table) );
+			if( !ref.fieldName.isEmpty() )
+			{
+				tt->setIndex(ref.fieldName);
+			}
+			FieldValue *fv = getField( idx );
+			gak::STRING	fvStr = fv->getStringValue();
+			tt->firstRecord( fvStr );
+			if( tt->eof() )
+			{
+				throw DBrefMasterNotFound(m_tableName, fDef.name, fvStr, ref.table, ref.fieldName );
+			}
+		}
+	}
 }
 
 void Table::postRecord()
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::postRecord" );
+
+	checkReferences4Post();
+
 	/*
 		check for primary keys
 	*/
@@ -304,9 +377,11 @@ void Table::postRecord()
 
 	if( key[0U] )
 	{
+		bool isDeleted;
 		gak::int64	posFound;
 		int compareVal = locateValue(
 			&posFound,
+			&isDeleted,
 			key, true
 		);
 
@@ -343,9 +418,46 @@ void Table::postRecord()
 	m_currentRecord.backupValues();
 }
 
+void Table::checkReferences4Delete()
+{
+	doEnterFunctionEx( gakLogging::llDetail, "Table::checkReferences4Delete" );
+	size_t idx = 0;
+	for(
+		FieldDefinitions::const_iterator it = m_fieldDefinitions.cbegin(), endIT = m_fieldDefinitions.cend();
+		it != endIT;
+		++it, ++idx
+	)
+	{
+		const FieldDefinition	&fd = *it;
+		const STRING			&fv = getField( idx )->getStringValue();
+
+		for( 
+			FieldSpecs::const_iterator it = fd.refBy.cbegin(), endIT = fd.refBy.cend();
+			it != endIT;
+			++it
+		)
+		{
+			const FieldSpec fs = *it;
+			std::unique_ptr<Table>	tt( m_database->openTable(fs.table) );
+			if( !fs.fieldName.isEmpty() )
+			{
+				tt->setIndex(fs.fieldName);
+			}
+			tt->firstRecord(fv);
+			if( !tt->eof() )
+			{
+				throw DBrefDetailFound(fs.table, fs.fieldName, fv, m_tableName, fd.name );
+			}
+		}
+	}
+}
+
 void Table::deleteRecord( bool noMove )
 {
 	doEnterFunctionEx( gakLogging::llDetail, "Table::deleteRecord" );
+
+	checkReferences4Delete();
+
 	STRING		searchBuffer;
 
 	for( size_t i=0; i<m_indices.size(); i++ )
@@ -378,15 +490,27 @@ void Table::firstRecord( const STRING &searchBuffer )
 
 	if( m_currentIndex )
 	{
+		// search the pattern in the index
 		m_currentIndex->firstRecord( searchBuffer );
 		if( !m_currentIndex->eof() )
 		{
-			m_currentRecord.readRecord(
-				m_dataFileHandle,
-				m_currentIndex->getField(
-					m_currentIndex->getNumFields() -1
-				)->getIntegerValue()
-			);
+			while( m_currentRecord.readRecord(
+					m_dataFileHandle,
+					m_currentIndex->getField(
+						m_currentIndex->getNumFields() -1
+					)->getIntegerValue()
+				)
+			)
+			{
+				// If there was a problem e.g. deleted record, check next record
+				m_currentIndex->nextRecord();
+				if( m_currentIndex->eof() )
+				{
+					// stop if index ist finished, too
+					m_currentRecord.m_theRecMode = rmEof;
+					break;
+				}
+			}
 		}
 		else
 			m_currentRecord.m_theRecMode = rmEof;
@@ -402,18 +526,31 @@ void Table::nextRecord()
 
 	if( m_currentIndex )
 	{
-		m_currentIndex->nextRecord();
-		if( !m_currentIndex->eof() )
+		while( true )
 		{
-			m_currentRecord.readRecord(
-				m_dataFileHandle,
-				m_currentIndex->getField(
-					m_currentIndex->getNumFields() -1
-				)->getIntegerValue()
-			);
+			m_currentIndex->nextRecord();
+			if( !m_currentIndex->eof() )
+			{
+				// we found a record in index
+				if( !m_currentRecord.readRecord(
+						m_dataFileHandle,
+						m_currentIndex->getField(
+							m_currentIndex->getNumFields() -1
+						)->getIntegerValue()
+					)
+				)
+				{
+					// no problems (record was not deleted)
+					break;
+				}
+			}
+			else
+			{
+				// index is at eof
+				m_currentRecord.m_theRecMode = rmEof;
+				break;
+			}
 		}
-		else
-			m_currentRecord.m_theRecMode = rmEof;
 
 	}
 	else
@@ -425,18 +562,31 @@ void Table::previousRecord()
 	doEnterFunctionEx( gakLogging::llDetail, "Table::previousRecord" );
 	if( m_currentIndex )
 	{
-		m_currentIndex->previousRecord();
-		if( !m_currentIndex->bof() )
+		while( true )
 		{
-			m_currentRecord.readRecord(
-				m_dataFileHandle,
-				m_currentIndex->getField(
-					m_currentIndex->getNumFields() -1
-				)->getIntegerValue()
-			);
+			m_currentIndex->previousRecord();
+			if( !m_currentIndex->bof() )
+			{
+				// we found a record in index
+				if( !m_currentRecord.readRecord(
+						m_dataFileHandle,
+						m_currentIndex->getField(
+							m_currentIndex->getNumFields() -1
+						)->getIntegerValue()
+					)
+				)
+				{
+					// no problems (record was not deleted)
+					break;
+				}
+			}
+			else
+			{
+				// index is at bof
+				m_currentRecord.m_theRecMode = rmBof;
+				break;
+			}
 		}
-		else
-			m_currentRecord.m_theRecMode = rmBof;
 
 	}
 	else
@@ -449,15 +599,28 @@ void Table::lastRecord( const STRING &searchBuffer )
 
 	if( m_currentIndex )
 	{
+		// search the pattern in the index
 		m_currentIndex->lastRecord( searchBuffer );
 		if( !m_currentIndex->bof() )
 		{
-			m_currentRecord.readRecord(
-				m_dataFileHandle,
-				m_currentIndex->getField(
-					m_currentIndex->getNumFields() -1
-				)->getIntegerValue()
-			);
+			while( 
+				m_currentRecord.readRecord(
+					m_dataFileHandle,
+					m_currentIndex->getField(
+						m_currentIndex->getNumFields() -1
+					)->getIntegerValue()
+				)
+			)
+			{
+				// If there was a problem e.g. deleted record, check previous record
+				m_currentIndex->previousRecord();
+				if( m_currentIndex->bof() )
+				{
+					// stop if index ist finished, too
+					m_currentRecord.m_theRecMode = rmBof;
+					break;
+				}
+			}
 		}
 		else
 			m_currentRecord.m_theRecMode = rmBof;
@@ -475,7 +638,7 @@ void Table::createIndex( const STRING &indexName )
 	if( findIndexFromPath( indexPath ) )
 		throw DBindexExist( indexName );
 
-	Index	*newIndex = new Index( indexPath );
+	Index	*newIndex = new Index( m_database, indexName, indexPath );
 	newIndex->create();
 	m_indices.addElement( newIndex );
 

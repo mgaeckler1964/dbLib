@@ -89,27 +89,31 @@ class Table : public Index
 	void writeDefinition() const;
 
 	Index *findIndexFromPath( const gak::STRING &indexPath ) const;
+	Index *findIndexFromName( const gak::STRING &indexName ) const;
 
 	void checkKeyViolation(Index *theIndex);
 	void insertKeyRecord(Index *theIndex);
 
 	public:
-	Table( const gak::STRING &pathName ) : Index( pathName )
+	Table( Database *database, const gak::STRING &tableName , const gak::STRING &pathName ) : Index( database, tableName, pathName )
 	{
-		m_currentIndex = NULL;
+		m_currentIndex = nullptr;
 		m_definitionFile = pathName;
 		m_definitionFile += ".definition";
 	}
 	~Table();
 
 	void open();
+	void addRefference(const gak::STRING &fromTable, const gak::STRING &fromField, const gak::STRING &toField);
 	void addField(
 		const gak::STRING &name, fType type,
 		bool primary=false,
 		bool notNulls = false,
 		const gak::STRING &reference = ""
 	);
+	void checkReferences4Post();
 	void postRecord();
+	void checkReferences4Delete();
 	void deleteRecord( bool noMove=false );
 
 	/*

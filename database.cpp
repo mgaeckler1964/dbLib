@@ -234,7 +234,7 @@ Table *Database::createTable( const char *tableName )
 	tableFile += DIRECTORY_DELIMITER;
 	tableFile += tableName;
 
-	theNewTable = new Table( tableFile );
+	theNewTable = new Table( this, tableName, tableFile );
 	theNewTable->create();
 
 	return theNewTable;
@@ -274,7 +274,7 @@ Table *Database::openTable( const char *tableName )
 
 	if( tablePath[0U] )
 	{
-		Table *theTable = new Table( tablePath );
+		Table *theTable = new Table( this, tableName, tablePath );
 		theTable->open();
 
 		return theTable;
