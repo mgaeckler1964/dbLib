@@ -183,7 +183,7 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 	std::cout << "Alpha Order:\n";
 	tab->firstRecord();
 
-	UT_ASSERT_EQUAL(tab->getField(my_FIRST_field)->getStringValue(), "Armleuchter" );
+	UT_EXPECT_EQUAL(tab->getField(my_FIRST_field)->getStringValue(), "Armleuchter" );
 	STRING lastString;
 
 	while( !tab->eof() )
@@ -197,13 +197,13 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 
 		tab->nextRecord();
 	}
-	UT_ASSERT_EQUAL(lastString, "Martin" );
+	UT_EXPECT_EQUAL(lastString, "Martin" );
 
 	std::cout << "Index Order:\n";
 	tab->setIndex( UNIQUE_INT_FIELD );
 	tab->firstRecord();
 
-	UT_ASSERT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 1 );
+	UT_EXPECT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 1 );
 	int lastInt;
 	while( !tab->eof() )
 	{
@@ -213,7 +213,7 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 
 		tab->nextRecord();
 	}
-	UT_ASSERT_EQUAL(lastInt, 4 );
+	UT_EXPECT_EQUAL(lastInt, 4 );
 
 	tab->setIndex( NORMAL_INT_FIELD );
 	STRING searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER);
@@ -227,12 +227,12 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 		int uniqueInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
 		if( count )
 		{
-			UT_ASSERT_NOT_EQUAL(lastInt, uniqueInt);
+			UT_EXPECT_NOT_EQUAL(lastInt, uniqueInt);
 		}
 		lastInt = uniqueInt;
 		++count;
 	}
-	UT_ASSERT_EQUAL(count, 2);
+	UT_EXPECT_EQUAL(count, 2);
 
 	searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER+1);
 	count = 0;
@@ -245,18 +245,18 @@ void MydbUnitTest::processTablesReadRecords(dbLib::Table *tab)
 		int uniqueInt = tab->getField(UNIQUE_INT_FIELD)->getIntegerValue();
 		if( count )
 		{
-			UT_ASSERT_NOT_EQUAL(lastInt, uniqueInt);
+			UT_EXPECT_NOT_EQUAL(lastInt, uniqueInt);
 		}
 		lastInt = uniqueInt;
 		++count;
 	}
-	UT_ASSERT_EQUAL(count, 2);
+	UT_EXPECT_EQUAL(count, 2);
 
 	searchPattern = dbLib::FieldValue::convertFieldType<long>(INT_FILTER+3);
 	tab->firstRecord( searchPattern );
-	UT_ASSERT_TRUE(tab->eof());
+	UT_EXPECT_TRUE(tab->eof());
 	tab->lastRecord( searchPattern );
-	UT_ASSERT_TRUE(tab->bof());
+	UT_EXPECT_TRUE(tab->bof());
 }
 
 void MydbUnitTest::processTablesUpdateRecords(dbLib::Table *tab)
@@ -275,7 +275,7 @@ void MydbUnitTest::processTablesUpdateRecords(dbLib::Table *tab)
 
 	std::cout << "Updated Values:\n";
 	tab->firstRecord();
-	UT_ASSERT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 112 );
+	UT_EXPECT_EQUAL(tab->getField(UNIQUE_INT_FIELD)->getIntegerValue(), 112 );
 	int lastInt;
 	while( !tab->eof() )
 	{
@@ -284,7 +284,7 @@ void MydbUnitTest::processTablesUpdateRecords(dbLib::Table *tab)
 		printIntegerField(tab,UNIQUE_INT_FIELD);
 		tab->nextRecord();
 	}
-	UT_ASSERT_EQUAL(lastInt, 115 );
+	UT_EXPECT_EQUAL(lastInt, 115 );
 }
 
 void MydbUnitTest::processTablesNullNkeyViolation(dbLib::Table *tab)
@@ -296,7 +296,7 @@ void MydbUnitTest::processTablesNullNkeyViolation(dbLib::Table *tab)
 	tab->getField( MY_SECOND_FIELD )->setStringValue( "Fischer" );
 	tab->getField( MY_THIRD_FIELD )->setStringValue( "Aussi" );
 	tab->getField( BOOL_FIELD )->setBooleanValue( true );
-	UT_ASSERT_EXCEPTION(tab->postRecord(), dbLib::DBnullValueNotAllowed);
+	UT_EXPECT_EXCEPTION(tab->postRecord(), dbLib::DBnullValueNotAllowed);
 
 	// test key violation
 	tab->insertRecord();
@@ -305,7 +305,7 @@ void MydbUnitTest::processTablesNullNkeyViolation(dbLib::Table *tab)
 	tab->getField( MY_THIRD_FIELD )->setStringValue( "Aussi" );
 	tab->getField( UNIQUE_INT_FIELD )->setIntegerValue( 666 );
 	tab->getField( BOOL_FIELD )->setBooleanValue( true );
-	UT_ASSERT_EXCEPTION(tab->postRecord(), dbLib::DBkeyViolation);
+	UT_EXPECT_EXCEPTION(tab->postRecord(), dbLib::DBkeyViolation);
 
 }
 
@@ -315,7 +315,7 @@ void MydbUnitTest::assertRecords(dbLib::Table *tab, gak::int64 expected)
 	tab->root();
 	const dbLib::Record &record = tab->getRecord();
 	const dbLib::RecordHeader &header = record.getHeader();
-	UT_ASSERT_EQUAL( header.numRecords, expected );
+	UT_EXPECT_EQUAL( header.numRecords, expected );
 }
 
 void MydbUnitTest::processTablesEmptyTable(dbLib::Table *tab)
@@ -326,7 +326,7 @@ void MydbUnitTest::processTablesEmptyTable(dbLib::Table *tab)
 	{
 		tab->deleteRecord();
 	}
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		tab->getField( "test" )->setStringValue( "Blödmann" ), 
 		dbLib::DBfieldNotFound
 	);
@@ -346,7 +346,7 @@ void MydbUnitTest::createSimpleTable(dbLib::Database *db)
 	t1->addField( MY_ONLY_FIELD, dbLib::ftInteger, true, true );	// this is my primary index
 
 	gak::int64 count = t1->getNumRecords();
-	UT_ASSERT_EQUAL( count, 0 );
+	UT_EXPECT_EQUAL( count, 0 );
 }
 
 void MydbUnitTest::fillSimpleTable(dbLib::Table *tab, int count, bool negative)
@@ -362,7 +362,7 @@ void MydbUnitTest::fillSimpleTable(dbLib::Table *tab, int count, bool negative)
 	}
 
 	gak::int64 count2 = tab->getNumRecords();
-	UT_ASSERT_EQUAL( count2 - count1, count );
+	UT_EXPECT_EQUAL( count2 - count1, count );
 }
 
 void MydbUnitTest::simpleTest(dbLib::Database *db)
@@ -377,23 +377,23 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 
 	{
 		tt->firstRecord();
-		UT_ASSERT_TRUE(tt->eof());
+		UT_EXPECT_TRUE(tt->eof());
 		tt->lastRecord();
-		UT_ASSERT_TRUE(tt->bof());
+		UT_EXPECT_TRUE(tt->bof());
 	}
 	fillSimpleTable(tt.get(), 1, false);
 	{
 		tt->firstRecord();
-		UT_ASSERT_FALSE(tt->eof());
+		UT_EXPECT_FALSE(tt->eof());
 		tt->lastRecord();
-		UT_ASSERT_FALSE(tt->bof());
+		UT_EXPECT_FALSE(tt->bof());
 
 		tt->deleteRecord();
 
 		tt->firstRecord();
-		UT_ASSERT_TRUE(tt->eof());
+		UT_EXPECT_TRUE(tt->eof());
 		tt->lastRecord();
-		UT_ASSERT_TRUE(tt->bof());
+		UT_EXPECT_TRUE(tt->bof());
 	}
 	{
 		fillSimpleTable(tt.get(), numData, false);
@@ -401,19 +401,19 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
 		{
 			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-			UT_ASSERT_LESS( prevValue, newValue );
+			UT_EXPECT_LESS( prevValue, newValue );
 			prevValue = newValue;
 		}
-		UT_ASSERT_EQUAL( prevValue, numData );
+		UT_EXPECT_EQUAL( prevValue, numData );
 
 		prevValue = numData+1;
 		for( tt->lastRecord(); !tt->bof(); tt->previousRecord() )
 		{
 			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-			UT_ASSERT_GREATER( prevValue, newValue );
+			UT_EXPECT_GREATER( prevValue, newValue );
 			prevValue = newValue;
 		}
-		UT_ASSERT_EQUAL( prevValue, 1 );
+		UT_EXPECT_EQUAL( prevValue, 1 );
 	}
 	{
 		fillSimpleTable(tt.get(), numData, true);
@@ -421,10 +421,10 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		for( tt->firstRecord(); !tt->eof(); tt->nextRecord() )
 		{
 			int newValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-			UT_ASSERT_LESS( prevValue, newValue );
+			UT_EXPECT_LESS( prevValue, newValue );
 			prevValue = newValue;
 		}
-		UT_ASSERT_EQUAL( prevValue, numData );
+		UT_EXPECT_EQUAL( prevValue, numData );
 	}
 	{
 		tt->insertRecord();
@@ -438,8 +438,8 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		long firstValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
 		tt->lastRecord();
 		long lastValue = tt->getField( MY_ONLY_FIELD )->getIntegerValue();
-		UT_ASSERT_EQUAL( firstValue, std::numeric_limits<long>::min() );
-		UT_ASSERT_EQUAL( lastValue, std::numeric_limits<long>::max() );
+		UT_EXPECT_EQUAL( firstValue, std::numeric_limits<long>::min() );
+		UT_EXPECT_EQUAL( lastValue, std::numeric_limits<long>::max() );
 	}
 	{
 		tt->insertRecord();
@@ -447,7 +447,7 @@ void MydbUnitTest::simpleTest(dbLib::Database *db)
 		tt->postRecord();
 		tt->insertRecord();
 		tt->getField( MY_ONLY_FIELD )->setIntegerValue( 0 );
-		UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+		UT_EXPECT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
 	}
 }
 
@@ -465,7 +465,7 @@ void MydbUnitTest::createIndexTable(dbLib::Database *db)
 	t1->addField( THIRD_INDEX_FIELD, dbLib::ftInteger );
 	t1->addField( FORTH_INDEX_FIELD, dbLib::ftInteger );
 
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		t1->dropIndex( SEC_INDEX ), 
 		dbLib::DBindexNotFound
 	);
@@ -475,7 +475,7 @@ void MydbUnitTest::createIndexTable(dbLib::Database *db)
 
 	t1->dropIndex(SEC_INDEX);
 
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true ), 
 		dbLib::DBindexNotFound
 	);
@@ -483,7 +483,7 @@ void MydbUnitTest::createIndexTable(dbLib::Database *db)
 	t1->createIndex( SEC_INDEX );
 	t1->addFieldToIndex( SEC_INDEX, SEC_INDEX_FIELD, true, true );
 
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		t1->createIndex( SEC_INDEX ),
 		dbLib::DBindexExist
 	);
@@ -514,11 +514,11 @@ void MydbUnitTest::indexTest(dbLib::Database *db)
 	tt->insertRecord();
 	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 0 );
 	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 2 );
-	UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+	UT_EXPECT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
 
 	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 2 );
 	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 0 );
-	UT_ASSERT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
+	UT_EXPECT_EXCEPTION(tt->postRecord(), dbLib::DBkeyViolation);
 
 	tt->getField( PRIM_INDEX_FIELD )->setIntegerValue( 2 );
 	tt->getField( SEC_INDEX_FIELD )->setIntegerValue( 2 );
@@ -533,26 +533,26 @@ void MydbUnitTest::indexTest(dbLib::Database *db)
 
 	tt->firstRecord();
 	long value = tt->getField( PRIM_INDEX_FIELD )->getIntegerValue();
-	UT_ASSERT_EQUAL( value, 2 );
+	UT_EXPECT_EQUAL( value, 2 );
 	value = tt->getField( THIRD_INDEX_FIELD )->getIntegerValue();
-	UT_ASSERT_EQUAL( value, -3 );
+	UT_EXPECT_EQUAL( value, -3 );
 
 	tt->lastRecord();
 	value = tt->getField( PRIM_INDEX_FIELD )->getIntegerValue();
-	UT_ASSERT_EQUAL( value, 0 );
+	UT_EXPECT_EQUAL( value, 0 );
 	value = tt->getField( THIRD_INDEX_FIELD )->getIntegerValue();
-	UT_ASSERT_EQUAL( value, -1 );
+	UT_EXPECT_EQUAL( value, -1 );
 
 	tt->createIndex( FORTH_INDEX );
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		tt->createIndex( FORTH_INDEX ), 
 		dbLib::DBindexExist
 	);
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		tt->addFieldToIndex( FORTH_INDEX, FORTH_INDEX_FIELD, true, true ),
 		dbLib::DBkeyViolation
 	);
-	UT_ASSERT_EXCEPTION(
+	UT_EXPECT_EXCEPTION(
 		tt->dropIndex( FORTH_INDEX ), 
 		dbLib::DBindexNotFound
 	);
@@ -601,12 +601,12 @@ void MydbUnitTest::referenceTest(dbLib::Database *db)
 		detail->getField(PRIM_INDEX_FIELD)->setIntegerValue(3);
 		detail->getField(SEC_INDEX_FIELD)->setIntegerValue(3);
 		detail->getField(masterTable)->setIntegerValue(4);
-		UT_ASSERT_EXCEPTION(
+		UT_EXPECT_EXCEPTION(
 			detail->postRecord(),
 			dbLib::DBrefMasterNotFound
 		);
 
-		UT_ASSERT_EXCEPTION(
+		UT_EXPECT_EXCEPTION(
 			master->deleteRecord(),
 			dbLib::DBrefDetailFound
 		);
@@ -684,7 +684,7 @@ void MydbUnitTest::PerformTest()
 	}
 
 	db->dropTable(simple);
-	UT_ASSERT_EXCEPTION(db->openTable( simple ), dbLib::DBtableNotFound);
+	UT_EXPECT_EXCEPTION(db->openTable( simple ), dbLib::DBtableNotFound);
 }
 
 static MydbUnitTest mydbUnitTest;
